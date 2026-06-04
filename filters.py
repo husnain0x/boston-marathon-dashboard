@@ -70,21 +70,29 @@ def load_and_merge_data():
 
 def apply_filters(df):
     """Render sidebar filters and return filtered dataframe."""
+
+    # Compute default values from the full dataset
+    year_min = int(df["Year"].min())
+    year_max = int(df["Year"].max())
+    time_min = float(df["Time_Minutes"].min())
+    time_max = float(df["Time_Minutes"].max())
+
     st.sidebar.markdown("---")
     st.sidebar.markdown("### 🎯 Filters")
 
     # ---- Reset Button ----
-    # Delete the widget keys so they fall back to their defaults on rerun.
     if st.sidebar.button("🔄 Reset All Filters", use_container_width=True):
-        for k in ["year_range", "gender_filter", "time_range",
-                  "country_filter", "search_filter"]:
-            st.session_state.pop(k, None)
+        # Write default values directly into session state so widgets
+        # pick them up immediately on the next rerun — no stale values.
+        st.session_state["year_range"]      = (year_min, year_max)
+        st.session_state["gender_filter"]   = "All"
+        st.session_state["time_range"]      = (time_min, time_max)
+        st.session_state["country_filter"]  = []
+        st.session_state["search_filter"]   = ""
         st.rerun()
 
-    # ---- 1. Date/Year Range Filter ----
+    # ---- 1. Year Range ----
     st.sidebar.markdown("#### 📅 Year Range")
-    year_min = int(df["Year"].min())
-    year_max = int(df["Year"].max())
     year_range = st.sidebar.slider(
         "Select Year Range",
         min_value=year_min,
@@ -93,17 +101,15 @@ def apply_filters(df):
         key="year_range",
     )
 
-    # ---- 2. Category Filter (Gender) ----
+    # ---- 2. Gender ----
     st.sidebar.markdown("#### 👤 Gender")
     gender_options = df["Gender"].unique().tolist()
     selected_gender = st.sidebar.selectbox(
         "Select Gender", ["All"] + gender_options, key="gender_filter"
     )
 
-    # ---- 3. Numerical Range Slider (Time in Minutes) ----
+    # ---- 3. Finishing Time ----
     st.sidebar.markdown("#### ⏱️ Finishing Time (Minutes)")
-    time_min = float(df["Time_Minutes"].min())
-    time_max = float(df["Time_Minutes"].max())
     time_range = st.sidebar.slider(
         "Select Time Range",
         min_value=time_min,
@@ -113,7 +119,7 @@ def apply_filters(df):
         key="time_range",
     )
 
-    # ---- 4. Multi-Select Filter (Country) ----
+    # ---- 4. Countries ----
     st.sidebar.markdown("#### 🌍 Countries")
     countries = sorted([str(c) for c in df["Country"].unique().tolist()])
     selected_countries = st.sidebar.multiselect(
@@ -123,7 +129,7 @@ def apply_filters(df):
         key="country_filter",
     )
 
-    # ---- 5. Search / Text Filter ----
+    # ---- 5. Search Winner ----
     st.sidebar.markdown("#### 🔍 Search Winner")
     search_text = st.sidebar.text_input(
         "Search by winner name", "", key="search_filter"
@@ -132,26 +138,21 @@ def apply_filters(df):
     # ---- Apply Filters ----
     filtered = df.copy()
 
-    # Year range
     filtered = filtered[
         (filtered["Year"] >= year_range[0]) & (filtered["Year"] <= year_range[1])
     ]
 
-    # Gender
     if selected_gender != "All":
         filtered = filtered[filtered["Gender"] == selected_gender]
 
-    # Time range
     filtered = filtered[
         (filtered["Time_Minutes"] >= time_range[0])
         & (filtered["Time_Minutes"] <= time_range[1])
     ]
 
-    # Countries
     if selected_countries:
         filtered = filtered[filtered["Country"].isin(selected_countries)]
 
-    # Search
     if search_text:
         filtered = filtered[
             filtered["Winner"].str.contains(search_text, case=False, na=False)
