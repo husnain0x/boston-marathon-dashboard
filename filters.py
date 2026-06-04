@@ -74,8 +74,11 @@ def apply_filters(df):
     st.sidebar.markdown("### 🎯 Filters")
 
     # ---- Reset Button ----
+    # Delete the widget keys so they fall back to their defaults on rerun.
     if st.sidebar.button("🔄 Reset All Filters", use_container_width=True):
-        st.session_state.clear()
+        for k in ["year_range", "gender_filter", "time_range",
+                  "country_filter", "search_filter"]:
+            st.session_state.pop(k, None)
         st.rerun()
 
     # ---- 1. Date/Year Range Filter ----
