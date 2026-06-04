@@ -277,6 +277,50 @@ st.markdown("""
 
     /* Hide image expand button for chart images */
     button[title="View fullscreen"] { display: none !important; }
+
+    /* Insight cards */
+    .insight-row {
+        display: flex; gap: 14px; margin: 18px 0 32px 0; flex-wrap: wrap;
+    }
+    .insight-card {
+        flex: 1; min-width: 200px;
+        background: linear-gradient(145deg, rgba(14,14,18,0.98), rgba(18,17,20,0.95));
+        border: 1px solid rgba(232,147,58,0.08); border-radius: 14px;
+        padding: 18px 20px; position: relative; overflow: hidden;
+        transition: border-color 0.3s ease, transform 0.3s ease;
+    }
+    .insight-card:hover {
+        border-color: rgba(232,147,58,0.2);
+        transform: translateY(-2px);
+    }
+    .insight-card::before {
+        content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(232,147,58,0.12), transparent);
+    }
+    .insight-icon { font-size: 1.3rem; margin-bottom: 8px; }
+    .insight-label {
+        color: #4a4540; font-size: 0.6rem; font-weight: 700;
+        letter-spacing: 2px; text-transform: uppercase; margin-bottom: 6px;
+    }
+    .insight-value {
+        color: #e8933a; font-size: 1.15rem; font-weight: 800;
+        letter-spacing: -0.3px; margin-bottom: 4px;
+    }
+    .insight-desc {
+        color: #7a7468; font-size: 0.72rem; line-height: 1.5; font-weight: 400;
+    }
+    .insight-desc b { color: #c8c0b0; font-weight: 600; }
+
+    /* Fun fact banner */
+    .fact-banner {
+        background: linear-gradient(135deg, rgba(232,147,58,0.04), rgba(212,168,80,0.04));
+        border: 1px solid rgba(232,147,58,0.1); border-radius: 14px;
+        padding: 16px 22px; margin: 10px 0 30px 0;
+        display: flex; align-items: flex-start; gap: 14px;
+    }
+    .fact-banner-icon { font-size: 1.4rem; flex-shrink: 0; margin-top: 2px; }
+    .fact-banner-text { color: #7a7468; font-size: 0.78rem; line-height: 1.6; }
+    .fact-banner-text b { color: #e8933a; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -408,6 +452,24 @@ if filtered_df.empty:
     st.warning("No data matches the current filters. Adjust the filter criteria.")
     st.stop()
 
+def insight_cards(*cards):
+    """Render a row of insight cards. Each card = (icon, label, value, desc)."""
+    items = "".join(f"""
+        <div class="insight-card">
+            <div class="insight-icon">{icon}</div>
+            <div class="insight-label">{label}</div>
+            <div class="insight-value">{value}</div>
+            <div class="insight-desc">{desc}</div>
+        </div>""" for icon, label, value, desc in cards)
+    st.markdown(f'<div class="insight-row">{items}</div>', unsafe_allow_html=True)
+
+def fact_banner(icon, text):
+    st.markdown(f"""
+    <div class="fact-banner">
+        <div class="fact-banner-icon">{icon}</div>
+        <div class="fact-banner-text">{text}</div>
+    </div>""", unsafe_allow_html=True)
+
 
 # ═══════════════════════════════════════════════════════════════
 # KPI CARDS
@@ -450,6 +512,26 @@ with col2:
 
 gc.collect()
 
+# Section 1 insights
+_top_country = filtered_df["Country"].value_counts().index[0] if len(filtered_df) > 0 else "N/A"
+_top_count   = filtered_df["Country"].value_counts().iloc[0]  if len(filtered_df) > 0 else 0
+_total_c     = filtered_df["Country"].nunique()
+_pct_top     = round(_top_count / len(filtered_df) * 100, 1) if len(filtered_df) > 0 else 0
+_time_mode_bin = int(filtered_df["Time_Minutes"].dropna().mode().iloc[0]) if len(filtered_df) > 0 else 0
+
+insight_cards(
+    ("🌍", "Dominant Nation", _top_country,
+     f"Won <b>{_top_count}</b> races — <b>{_pct_top}%</b> of all filtered records. "
+     f"A total of <b>{_total_c}</b> nations have won the Boston Marathon."),
+    ("⏱️", "Most Common Finish", f"~{_time_mode_bin} min",
+     f"The most frequent winning time falls around <b>{_time_mode_bin} minutes</b> "
+     f"({_time_mode_bin//60}h {_time_mode_bin%60}m). Times cluster tightly among elite runners."),
+    ("📊", "Dataset Snapshot", f"{len(filtered_df)} records",
+     f"Showing <b>{len(filtered_df)}</b> race results across "
+     f"<b>{filtered_df['Year'].nunique()}</b> years and "
+     f"<b>{filtered_df['Gender'].nunique()}</b> gender categor{'y' if filtered_df['Gender'].nunique()==1 else 'ies'}."),
+)
+
 # ═══════════════════════════════════════════════════════════════
 # SECTION 2 — TRENDS
 # ═══════════════════════════════════════════════════════════════
@@ -471,6 +553,37 @@ with col4:
 
 gc.collect()
 
+# Section 2 insights
+_earliest = int(filtered_df["Year"].min()) if len(filtered_df) > 0 else "N/A"
+_latest   = int(filtered_df["Year"].max()) if len(filtered_df) > 0 else "N/A"
+_fastest  = filtered_df["Time_Minutes"].min() if len(filtered_df) > 0 else 0
+_slowest  = filtered_df["Time_Minutes"].max() if len(filtered_df) > 0 else 0
+_improvement = round(_slowest - _fastest, 1) if len(filtered_df) > 0 else 0
+_avg_spd  = round(filtered_df["Speed_MPH"].dropna().mean(), 2) if len(filtered_df) > 0 else 0
+
+def fmt(m):
+    try: return f"{int(m//60)}h {int(m%60)}m {int((m%1)*60)}s"
+    except: return "N/A"
+
+insight_cards(
+    ("🚀", "Fastest Winning Time", fmt(_fastest),
+     f"Set in <b>{int(filtered_df.loc[filtered_df['Time_Minutes'].idxmin(),'Year'])}</b> by "
+     f"<b>{filtered_df.loc[filtered_df['Time_Minutes'].idxmin(),'Winner']}</b>. "
+     f"Elite marathons have seen dramatic speed improvements since {_earliest}."),
+    ("📉", "Time Improvement", f"{_improvement:.1f} min",
+     f"Winning times dropped by <b>{_improvement:.1f} minutes</b> from the slowest "
+     f"to the fastest in this selection — driven by better training, nutrition & shoes."),
+    ("💨", "Avg Winning Speed", f"{_avg_spd} mph",
+     f"Winners average <b>{_avg_spd} mph</b> across 26.2 miles. "
+     f"That's roughly <b>{round(60/_avg_spd*26.2,1)} min total</b> at a relentless pace."),
+)
+
+fact_banner("💡",
+    f"The Boston Marathon — held every <b>Patriots' Day</b> in April — is the world's oldest "
+    f"annual marathon (since <b>1897</b>). The course runs from Hopkinton to Boston, covering "
+    f"exactly <b>26.2 miles (42.195 km)</b>. The infamous 'Heartbreak Hill' at mile 20-21 "
+    f"has broken many a race strategy.")
+
 # ═══════════════════════════════════════════════════════════════
 # SECTION 3 — COMPARISONS
 # ═══════════════════════════════════════════════════════════════
@@ -487,6 +600,25 @@ with col6:
     st.markdown('</div></div>', unsafe_allow_html=True)
 
 gc.collect()
+
+# Section 3 insights
+_top3 = filtered_df["Country"].value_counts().head(3)
+_top3_str = ", ".join([f"<b>{c}</b> ({n})" for c,n in _top3.items()])
+_decades = filtered_df["Decade_Label"].value_counts()
+_best_decade = _decades.index[0] if len(_decades) > 0 else "N/A"
+_best_decade_n = _decades.iloc[0] if len(_decades) > 0 else 0
+_unique_winners = filtered_df["Winner"].nunique()
+
+insight_cards(
+    ("🏆", "Top 3 Countries", "",
+     f"The podium of nations: {_top3_str}. These countries have dominated Boston's finish line for decades."),
+    ("📅", "Most Active Decade", _best_decade,
+     f"The <b>{_best_decade}</b> had the most winners in this selection (<b>{_best_decade_n} races</b>). "
+     f"Decade trends reveal how participation and competition evolved over time."),
+    ("🏅", "Unique Champions", f"{_unique_winners}",
+     f"<b>{_unique_winners}</b> different athletes won across the filtered records. "
+     f"Some legends — like <b>Clarence DeMar</b> (7 wins) — dominated multiple eras."),
+)
 
 # ═══════════════════════════════════════════════════════════════
 # SECTION 4 — STATISTICAL
@@ -509,6 +641,31 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 gc.collect()
 
+# Section 4 insights
+_median_t  = round(filtered_df["Time_Minutes"].dropna().median(), 1)
+_std_t     = round(filtered_df["Time_Minutes"].dropna().std(), 1)
+_male_avg  = round(filtered_df[filtered_df["Gender"]=="Male"]["Time_Minutes"].mean(), 1)   if "Male"   in filtered_df["Gender"].values else None
+_female_avg= round(filtered_df[filtered_df["Gender"]=="Female"]["Time_Minutes"].mean(), 1) if "Female" in filtered_df["Gender"].values else None
+_gap = round(_female_avg - _male_avg, 1) if (_male_avg and _female_avg) else None
+
+insight_cards(
+    ("📐", "Median Finish Time", f"{_median_t} min",
+     f"The median winning time is <b>{_median_t} min</b> ({int(_median_t//60)}h {int(_median_t%60)}m). "
+     f"The standard deviation of <b>{_std_t} min</b> shows how tightly clustered elite performances are."),
+    ("⚖️", "Gender Gap", f"{_gap} min" if _gap else "Single gender",
+     (f"Men average <b>{_male_avg} min</b>, Women <b>{_female_avg} min</b> — a gap of <b>{_gap} min</b>. "
+      f"The women's gap has narrowed significantly since the 1970s as elite female athletics matured."
+      if _gap else "Filter includes only one gender. Select 'All' to see the gender gap comparison.")),
+    ("📈", "Spread Analysis", f"σ = {_std_t} min",
+     f"A standard deviation of <b>{_std_t} min</b> reflects how consistently elite runners "
+     f"perform near peak times. Lower σ in recent decades shows increasing competitive depth."),
+)
+
+fact_banner("🧠",
+    f"<b>Statistical insight:</b> Box plots reveal outliers — unusually slow times often correspond "
+    f"to early marathon years (pre-1920s) when training science was primitive. The violin plot "
+    f"shows the full distribution shape: modern winners cluster in a very tight band near peak performance.")
+
 # ═══════════════════════════════════════════════════════════════
 # SECTION 5 — BONUS
 # ═══════════════════════════════════════════════════════════════
@@ -528,6 +685,32 @@ with st.expander("Pair Plot — Multi-Feature Relationship Analysis", expanded=F
     show_chart(plot_pairplot, filtered_df, "Pair Plot")
 
 gc.collect()
+
+# Section 5 insights
+_avg_pace = round(filtered_df["Pace_Per_Mile"].dropna().mean(), 2) if len(filtered_df) > 0 else 0
+_best_pace = round(filtered_df["Pace_Per_Mile"].dropna().min(), 2) if len(filtered_df) > 0 else 0
+_top_speed_row = filtered_df.loc[filtered_df["Speed_MPH"].idxmax()] if len(filtered_df) > 0 else None
+_top_speed_name = _top_speed_row["Winner"] if _top_speed_row is not None else "N/A"
+_top_speed_val  = round(_top_speed_row["Speed_MPH"], 2) if _top_speed_row is not None else 0
+
+insight_cards(
+    ("🏃", "Avg Pace Per Mile", f"{_avg_pace} min/mi",
+     f"Winners average <b>{_avg_pace} min/mile</b> — that's running each mile in under "
+     f"<b>{int(_avg_pace)}:{int((_avg_pace%1)*60):02d}</b>. Sustained over 26.2 miles, this is superhuman."),
+    ("⚡", "Fastest Ever Speed", f"{_top_speed_val} mph",
+     f"<b>{_top_speed_name}</b> holds the highest recorded speed at <b>{_top_speed_val} mph</b> "
+     f"in this dataset. Modern marathon winners run faster than most cyclists on flat roads."),
+    ("🔬", "Multi-Feature Analysis", "Pair & Bubble",
+     f"The bubble chart maps Year vs Time vs Speed together. The pair plot reveals correlations "
+     f"between all numeric features — pace, speed, time, and distance interact in revealing ways."),
+)
+
+fact_banner("📌",
+    f"<b>Did you know?</b> The Boston Marathon is one of the six <b>World Marathon Majors</b> "
+    f"alongside Tokyo, London, Berlin, Chicago, and New York. It is the only major with a "
+    f"<b>qualifying standard</b> — you must run a sub-3h (men) or sub-3:30h (women) marathon "
+    f"just to enter. The 2011 men's record by <b>Geoffrey Mutai</b> (2:03:02) stood for years "
+    f"and remains one of the fastest ever run on a point-to-point course.")
 
 # ═══════════════════════════════════════════════════════════════
 # DATA TABLE
