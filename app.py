@@ -85,7 +85,7 @@ st.markdown("""
     section[data-testid="stSidebar"] {
         background: linear-gradient(180deg, #0a0a0e 0%, #0e0d10 100%) !important;
         border-right: 1px solid rgba(232, 147, 58, 0.06);
-        animation: slideInLeft 0.6s ease-out;
+        transition: transform 0.3s ease, opacity 0.3s ease;
     }
     section[data-testid="stSidebar"] .stMarkdown h3,
     section[data-testid="stSidebar"] .stMarkdown h4 {
@@ -270,8 +270,8 @@ st.markdown("""
 
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    header {visibility: hidden;}
     .stDeployButton {display: none;}
+
     .stSpinner > div { border-color: var(--amber) !important; }
     [data-testid="stHorizontalBlock"] > div { transition: all 0.3s ease; }
 
@@ -279,6 +279,7 @@ st.markdown("""
     button[title="View fullscreen"] { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
+
 
 
 # ═══════════════════════════════════════════════════════════════
