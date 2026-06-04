@@ -278,6 +278,88 @@ st.markdown("""
     /* Hide image expand button for chart images */
     button[title="View fullscreen"] { display: none !important; }
 
+    /* Section number badges */
+    .section-badge {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 28px; height: 28px; border-radius: 50%;
+        background: linear-gradient(135deg, #c47520, #e8933a);
+        color: #08080a; font-size: 0.75rem; font-weight: 800;
+        flex-shrink: 0; box-shadow: 0 0 12px rgba(232,147,58,0.3);
+    }
+
+    /* Chart captions */
+    .chart-caption {
+        background: rgba(232,147,58,0.04);
+        border-top: 1px solid rgba(232,147,58,0.08);
+        border-radius: 0 0 14px 14px;
+        padding: 10px 16px;
+        margin-top: -8px;
+        margin-bottom: 18px;
+    }
+    .chart-caption p {
+        color: #6a6460; font-size: 0.7rem; line-height: 1.55;
+        margin: 0; font-weight: 400;
+    }
+    .chart-caption p b { color: #a89880; font-weight: 600; }
+
+    /* Overview intro box */
+    .overview-box {
+        background: linear-gradient(145deg, rgba(14,14,18,0.98), rgba(16,15,20,0.95));
+        border: 1px solid rgba(232,147,58,0.08); border-radius: 16px;
+        padding: 22px 28px; margin-bottom: 32px; position: relative; overflow: hidden;
+    }
+    .overview-box::before {
+        content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(232,147,58,0.15), transparent);
+    }
+    .overview-box h4 {
+        color: #e8933a; font-size: 0.65rem; font-weight: 700;
+        letter-spacing: 2.5px; text-transform: uppercase; margin: 0 0 10px 0;
+    }
+    .overview-box p {
+        color: #8a8278; font-size: 0.8rem; line-height: 1.7; margin: 0;
+    }
+    .overview-box p b { color: #c8c0b0; }
+    .overview-tag {
+        display: inline-block; background: rgba(232,147,58,0.08);
+        border: 1px solid rgba(232,147,58,0.15); color: #e8933a;
+        padding: 3px 10px; border-radius: 100px; font-size: 0.62rem;
+        font-weight: 600; letter-spacing: 1px; margin: 2px 3px 0 0;
+    }
+
+    /* Export section */
+    .export-box {
+        background: linear-gradient(145deg, rgba(14,14,18,0.98), rgba(16,15,20,0.95));
+        border: 1px solid rgba(232,147,58,0.08); border-radius: 16px;
+        padding: 24px 28px; margin: 12px 0 32px 0;
+    }
+    .export-box h4 {
+        color: #e8933a; font-size: 0.65rem; font-weight: 700;
+        letter-spacing: 2.5px; text-transform: uppercase; margin: 0 0 14px 0;
+    }
+
+    /* Dashboard info footer card */
+    .info-card {
+        background: linear-gradient(145deg, rgba(14,14,18,0.98), rgba(16,15,20,0.95));
+        border: 1px solid rgba(232,147,58,0.08); border-radius: 16px;
+        padding: 24px 28px; margin: 12px 0 32px 0;
+    }
+    .info-card h4 {
+        color: #e8933a; font-size: 0.65rem; font-weight: 700;
+        letter-spacing: 2.5px; text-transform: uppercase; margin: 0 0 14px 0;
+    }
+    .info-grid {
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 12px; margin-top: 10px;
+    }
+    .info-item { }
+    .info-item-label {
+        color: #4a4540; font-size: 0.6rem; font-weight: 700;
+        letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 3px;
+    }
+    .info-item-value { color: #c8c0b0; font-size: 0.78rem; font-weight: 500; }
+
+    /* Insight cards */
     /* Insight cards */
     .insight-row {
         display: flex; gap: 14px; margin: 18px 0 32px 0; flex-wrap: wrap;
@@ -423,10 +505,13 @@ def mins_to_hms(m):
     except (ValueError, TypeError):
         return "N/A"
 
+_section_counter = [0]
 def section(title, subtitle):
+    _section_counter[0] += 1
+    n = _section_counter[0]
     st.markdown(f"""
     <div class="noon-section">
-        <div class="noon-section-dot"></div>
+        <div class="section-badge">{n}</div>
         <div class="noon-section-info">
             <p class="noon-section-title">{title}</p>
             <p class="noon-section-sub">{subtitle}</p>
@@ -472,6 +557,33 @@ def fact_banner(icon, text):
 
 
 # ═══════════════════════════════════════════════════════════════
+# OVERVIEW BOX
+# ═══════════════════════════════════════════════════════════════
+_men_years = int(df[df["Gender"]=="Male"]["Year"].max()) - int(df[df["Gender"]=="Male"]["Year"].min())
+_women_years = int(df[df["Gender"]=="Female"]["Year"].max()) - int(df[df["Gender"]=="Female"]["Year"].min())
+_total_countries = df["Country"].nunique()
+st.markdown(f'''
+<div class="overview-box">
+    <h4>📋 Dashboard Overview</h4>
+    <p>
+        This dashboard explores <b>{len(df)} historical race results</b> from the Boston Marathon —
+        the world's oldest annual marathon, held every Patriots' Day since <b>1897</b>.
+        The dataset covers <b>Men's records ({int(df[df["Gender"]=="Male"]["Year"].min())}–{int(df[df["Gender"]=="Male"]["Year"].max())})</b>
+        and <b>Women's records ({int(df[df["Gender"]=="Female"]["Year"].min())}–{int(df[df["Gender"]=="Female"]["Year"].max())})</b>
+        spanning winners from <b>{_total_countries} countries</b> across 6 continents.
+        Use the sidebar filters to drill into specific years, genders, countries, or search by winner name.
+    </p>
+    <div style="margin-top:12px;">
+        <span class="overview-tag">🏃 {len(df[df["Gender"]=="Male"])} Men's Records</span>
+        <span class="overview-tag">🚺 {len(df[df["Gender"]=="Female"])} Women's Records</span>
+        <span class="overview-tag">🌍 {_total_countries} Countries</span>
+        <span class="overview-tag">📅 {int(df["Year"].max()) - int(df["Year"].min())} Year Span</span>
+        <span class="overview-tag">⏱️ 10 Chart Types</span>
+    </div>
+</div>
+''', unsafe_allow_html=True)
+
+# ═══════════════════════════════════════════════════════════════
 # KPI CARDS
 # ═══════════════════════════════════════════════════════════════
 time_data = filtered_df["Time_Minutes"].dropna()
@@ -509,6 +621,13 @@ with col2:
     st.markdown('<div class="chart-right"><div class="noon-chart">', unsafe_allow_html=True)
     show_chart(plot_histogram, filtered_df, "Histogram")
     st.markdown('</div></div>', unsafe_allow_html=True)
+
+st.markdown('''
+<div class="chart-caption"><p>
+<b>Winners by Country</b> — The pie chart reveals national dominance patterns.
+<b>Histogram</b> — Distribution of winning times shows how elite performance clusters in a tight band,
+with the long right tail representing early-era races before modern training methods.
+</p></div>''', unsafe_allow_html=True)
 
 gc.collect()
 
@@ -550,6 +669,14 @@ with col4:
     st.markdown('<div class="chart-right"><div class="noon-chart">', unsafe_allow_html=True)
     show_chart(plot_area_chart, filtered_df, "Area Chart")
     st.markdown('</div></div>', unsafe_allow_html=True)
+
+st.markdown('''
+<div class="chart-caption"><p>
+<b>Line Chart</b> — The downward trend in winning times reflects advances in training, nutrition, and shoe technology.
+<b>Scatter</b> — Each dot is one race; the regression line shows the long-term improvement trajectory.
+<b>Area Chart</b> — Cumulative view of time trends, highlighting the dramatic improvement post-1970s
+when women began competing officially and training science matured.
+</p></div>''', unsafe_allow_html=True)
 
 gc.collect()
 
@@ -599,6 +726,13 @@ with col6:
     show_chart(plot_countplot, filtered_df, "Count Plot")
     st.markdown('</div></div>', unsafe_allow_html=True)
 
+st.markdown('''
+<div class="chart-caption"><p>
+<b>Bar Chart</b> — Total wins per country; dominance by USA (early era), Japan (mid-era), Kenya and Ethiopia (modern era).
+<b>Count Plot</b> — Race counts grouped by decade; shows the expansion of the women's field
+from the 1970s onward and the full historical depth of the men's competition since 1897.
+</p></div>''', unsafe_allow_html=True)
+
 gc.collect()
 
 # Section 3 insights
@@ -638,6 +772,15 @@ with col8:
 st.markdown('<div class="noon-chart">', unsafe_allow_html=True)
 show_chart(plot_heatmap, filtered_df, "Heatmap")
 st.markdown('</div>', unsafe_allow_html=True)
+
+st.markdown('''
+<div class="chart-caption"><p>
+<b>Box Plot</b> — Interquartile ranges reveal the spread of winning times by gender and decade.
+Outliers (dots beyond whiskers) are typically early-era races with longer distances or harsh conditions.
+<b>Violin Plot</b> — Adds density information; the wider the violin, the more races at that time.
+<b>Heatmap</b> — Correlation matrix shows strong negative correlation between year and time
+(times decrease as years increase), confirming the improvement trend seen in Section 2.
+</p></div>''', unsafe_allow_html=True)
 
 gc.collect()
 
@@ -684,6 +827,14 @@ with col10:
 with st.expander("Pair Plot — Multi-Feature Relationship Analysis", expanded=False):
     show_chart(plot_pairplot, filtered_df, "Pair Plot")
 
+st.markdown('''
+<div class="chart-caption"><p>
+<b>Bubble Chart</b> — Three dimensions at once: Year (x), Finishing Time (y), Speed (bubble size).
+Larger bubbles = faster races. <b>Funnel Chart</b> — Shows progression through performance tiers,
+from all records down to elite sub-2:10 performances. <b>Pair Plot</b> — Multi-feature correlation
+matrix; the diagonal shows each variable's distribution while off-diagonal shows pairwise relationships.
+</p></div>''', unsafe_allow_html=True)
+
 gc.collect()
 
 # Section 5 insights
@@ -726,6 +877,114 @@ st.dataframe(
     height=420,
 )
 
+
+# ═══════════════════════════════════════════════════════════════
+# EXPORT SECTION
+# ═══════════════════════════════════════════════════════════════
+section("Data Export", "Download the filtered dataset for your own analysis")
+
+import io
+_export_df = filtered_df[[c for c in ["Year","Winner","Country","Gender","Time","Time_Minutes",
+    "Speed_MPH","Pace_Per_Mile","Distance (Miles)","Distance (KM)","Decade_Label"]
+    if c in filtered_df.columns]].reset_index(drop=True)
+
+_csv_buf = io.StringIO()
+_export_df.to_csv(_csv_buf, index=False)
+_csv_bytes = _csv_buf.getvalue().encode()
+
+col_exp1, col_exp2, col_exp3 = st.columns(3)
+with col_exp1:
+    st.download_button(
+        label="⬇️ Download Filtered CSV",
+        data=_csv_bytes,
+        file_name=f"boston_marathon_filtered_{len(_export_df)}_records.csv",
+        mime="text/csv",
+        use_container_width=True,
+    )
+with col_exp2:
+    st.download_button(
+        label="⬇️ Download Full Dataset CSV",
+        data=open("data/Mens_Boston_Marathon_Winners_r0l7bV.csv","rb").read(),
+        file_name="boston_marathon_mens_full.csv",
+        mime="text/csv",
+        use_container_width=True,
+    )
+with col_exp3:
+    st.download_button(
+        label="⬇️ Download Women's CSV",
+        data=open("data/Womens_Boston_Marathon_Winners_8SSnWb.csv","rb").read(),
+        file_name="boston_marathon_womens_full.csv",
+        mime="text/csv",
+        use_container_width=True,
+    )
+
+# ── Quick Summary
+st.markdown(f'''
+<div class="export-box" style="margin-top:16px;">
+    <h4>📊 Quick Summary — Current Filter</h4>
+    <div class="info-grid">
+        <div class="info-item">
+            <div class="info-item-label">Total Records</div>
+            <div class="info-item-value">{len(_export_df)}</div>
+        </div>
+        <div class="info-item">
+            <div class="info-item-label">Year Range</div>
+            <div class="info-item-value">{int(_export_df["Year"].min())} – {int(_export_df["Year"].max())}</div>
+        </div>
+        <div class="info-item">
+            <div class="info-item-label">Unique Winners</div>
+            <div class="info-item-value">{_export_df["Winner"].nunique()}</div>
+        </div>
+        <div class="info-item">
+            <div class="info-item-label">Countries</div>
+            <div class="info-item-value">{_export_df["Country"].nunique()}</div>
+        </div>
+        <div class="info-item">
+            <div class="info-item-label">Fastest Time</div>
+            <div class="info-item-value">{_export_df["Time_Minutes"].min():.1f} min</div>
+        </div>
+        <div class="info-item">
+            <div class="info-item-label">Avg Speed</div>
+            <div class="info-item-value">{_export_df["Speed_MPH"].mean():.2f} mph</div>
+        </div>
+    </div>
+</div>
+''', unsafe_allow_html=True)
+
+# ═══════════════════════════════════════════════════════════════
+# DASHBOARD INFO CARD
+# ═══════════════════════════════════════════════════════════════
+st.markdown(f'''
+<div class="info-card">
+    <h4>ℹ️ Dashboard Information</h4>
+    <div class="info-grid">
+        <div class="info-item">
+            <div class="info-item-label">Data Sources</div>
+            <div class="info-item-value">Men's (1897–2022) · Women's (1966–2022)</div>
+        </div>
+        <div class="info-item">
+            <div class="info-item-label">Total Records Available</div>
+            <div class="info-item-value">{len(df)} race results</div>
+        </div>
+        <div class="info-item">
+            <div class="info-item-label">Chart Types</div>
+            <div class="info-item-value">10 visualizations + Pair Plot</div>
+        </div>
+        <div class="info-item">
+            <div class="info-item-label">Country Representation</div>
+            <div class="info-item-value">{df["Country"].nunique()} nations across 6 continents</div>
+        </div>
+        <div class="info-item">
+            <div class="info-item-label">Built With</div>
+            <div class="info-item-value">Streamlit · Pandas · Matplotlib · Seaborn</div>
+        </div>
+        <div class="info-item">
+            <div class="info-item-label">Race Distance</div>
+            <div class="info-item-value">26.2 mi / 42.195 km (standardized 1924)</div>
+        </div>
+    </div>
+</div>
+''', unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════
 # FOOTER
