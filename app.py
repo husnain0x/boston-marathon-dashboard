@@ -1,13 +1,14 @@
 """
-app.py — Boston Marathon Data Visualization Dashboard
-Noon-inspired premium dark theme: Deep black + warm amber/gold/orange glow.
-Memory-optimized: charts render to PNG bytes, displayed as images.
+app.py — Boston Marathon Elite Dashboard
+Cinematic dark theme: deep black + amber/gold glow
+Race-themed: route banner, milestones, Hall of Fame, tab nav
 """
 
 import streamlit as st
 import pandas as pd
 import numpy as np
 import gc
+import io
 from filters import load_and_merge_data, apply_filters
 from charts import (
     plot_pie_chart, plot_histogram, plot_line_chart, plot_bar_chart,
@@ -16,9 +17,6 @@ from charts import (
     plot_funnel_chart
 )
 
-# ═══════════════════════════════════════════════════════════════
-# PAGE CONFIG
-# ═══════════════════════════════════════════════════════════════
 st.set_page_config(
     page_title="Boston Marathon Dashboard",
     page_icon="🏃",
@@ -26,391 +24,331 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ═══════════════════════════════════════════════════════════════
-# NOON-INSPIRED PREMIUM CSS + ANIMATIONS
-# ═══════════════════════════════════════════════════════════════
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
-    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800&display=swap');
 
-    :root {
-        --bg-deep: #08080a;
-        --bg-card: #0e0e12;
-        --bg-card-hover: #121216;
-        --border: #1a1815;
-        --border-warm: #2a2318;
-        --amber: #e8933a;
-        --amber-light: #f0a852;
-        --amber-dark: #c47520;
-        --gold: #d4a850;
-        --gold-light: #e8c86a;
-        --orange: #e07830;
-        --text-white: #f5f0e8;
-        --text-light: #c8c0b0;
-        --text-dim: #7a7468;
-        --text-muted: #4a4540;
-    }
+:root {
+    --bg:      #07070a;
+    --bg1:     #0b0b0f;
+    --bg2:     #0f0e13;
+    --bg3:     #141318;
+    --border:  rgba(232,147,58,0.07);
+    --border2: rgba(232,147,58,0.15);
+    --amber:   #e8933a;
+    --amber2:  #f0a852;
+    --gold:    #d4a850;
+    --orange:  #e07830;
+    --tw:      #f5f0e8;
+    --tl:      #c8c0b0;
+    --td:      #7a7468;
+    --tm:      #4a4540;
+}
 
-    @keyframes fadeInUp {
-        from { opacity: 0; transform: translateY(25px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-    @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-    }
-    @keyframes slideInLeft {
-        from { opacity: 0; transform: translateX(-30px); }
-        to { opacity: 1; transform: translateX(0); }
-    }
-    @keyframes pulseGlow {
-        0%, 100% { box-shadow: 0 0 12px rgba(232,147,58,0.3); }
-        50% { box-shadow: 0 0 20px rgba(232,147,58,0.5); }
-    }
-    @keyframes shimmer {
-        0% { background-position: -200% center; }
-        100% { background-position: 200% center; }
-    }
-    @keyframes scaleIn {
-        from { opacity: 0; transform: scale(0.92); }
-        to { opacity: 1; transform: scale(1); }
-    }
+/* ── Base ───────────────────────────────── */
+.stApp, html, body,
+[data-testid="stAppViewContainer"],
+[data-testid="stAppViewBlockContainer"] {
+    background: var(--bg) !important;
+    font-family: 'Inter', sans-serif;
+}
+html { scroll-behavior: smooth; }
 
-    .stApp { background: var(--bg-deep) !important; font-family: 'Inter', -apple-system, sans-serif; }
-    html, body, [data-testid="stAppViewContainer"],
-    [data-testid="stAppViewBlockContainer"] { background: var(--bg-deep) !important; }
-    html { scroll-behavior: smooth; }
+/* ── Sidebar ─────────────────────────────── */
+section[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #09090d 0%, #0d0c11 100%) !important;
+    border-right: 1px solid var(--border);
+}
+section[data-testid="stSidebar"] hr { border-color: var(--border) !important; }
+section[data-testid="stSidebar"] .stMarkdown h3,
+section[data-testid="stSidebar"] .stMarkdown h4 {
+    color: var(--amber) !important; font-weight: 700 !important;
+    font-size: 0.65rem !important; letter-spacing: 2.5px; text-transform: uppercase;
+}
 
-    section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #0a0a0e 0%, #0e0d10 100%) !important;
-        border-right: 1px solid rgba(232, 147, 58, 0.06);
-        transition: transform 0.3s ease, opacity 0.3s ease;
-    }
-    section[data-testid="stSidebar"] .stMarkdown h3,
-    section[data-testid="stSidebar"] .stMarkdown h4 {
-        color: var(--amber) !important; font-weight: 600 !important;
-        font-size: 0.7rem !important; letter-spacing: 2px; text-transform: uppercase; opacity: 0.85;
-    }
-    section[data-testid="stSidebar"] hr { border-color: rgba(232, 147, 58, 0.08) !important; }
+/* ── KPI Metrics ─────────────────────────── */
+div[data-testid="stMetric"] {
+    background: linear-gradient(145deg, var(--bg2), var(--bg3));
+    border: 1px solid var(--border); border-radius: 16px;
+    padding: 22px 20px; transition: all 0.35s ease;
+    position: relative; overflow: hidden;
+}
+div[data-testid="stMetric"]::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(232,147,58,0.18), transparent);
+}
+div[data-testid="stMetric"]:hover {
+    border-color: var(--border2);
+    transform: translateY(-3px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5), 0 0 40px rgba(232,147,58,0.05);
+}
+div[data-testid="stMetric"] label {
+    color: var(--td) !important; font-size: 0.63rem !important;
+    font-weight: 700 !important; letter-spacing: 2px; text-transform: uppercase;
+}
+div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
+    color: var(--tw) !important; font-size: 1.45rem !important;
+    font-weight: 800 !important; letter-spacing: -0.5px;
+}
+div[data-testid="stMetric"] div[data-testid="stMetricDelta"] {
+    color: var(--amber) !important; font-size: 0.68rem !important;
+}
 
-    div[data-testid="stMetric"] {
-        background: linear-gradient(145deg, rgba(14,14,18,0.98), rgba(18,18,22,0.95));
-        border: 1px solid rgba(232, 147, 58, 0.08); border-radius: 16px;
-        padding: 24px 22px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.4), 0 0 1px rgba(232, 147, 58, 0.1),
-                    inset 0 1px 0 rgba(255,255,255,0.02);
-        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        position: relative; overflow: hidden;
-        animation: scaleIn 0.5s ease-out backwards;
-    }
-    div[data-testid="stMetric"]:nth-child(1) { animation-delay: 0.1s; }
-    div[data-testid="stMetric"]:nth-child(2) { animation-delay: 0.2s; }
-    div[data-testid="stMetric"]:nth-child(3) { animation-delay: 0.3s; }
-    div[data-testid="stMetric"]::before {
-        content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
-        background: linear-gradient(90deg, transparent, rgba(232,147,58,0.15), transparent);
-    }
-    div[data-testid="stMetric"]:hover {
-        border-color: rgba(232, 147, 58, 0.25);
-        box-shadow: 0 8px 35px rgba(0,0,0,0.5), 0 0 60px rgba(232, 147, 58, 0.06),
-                    inset 0 1px 0 rgba(255,255,255,0.03);
-        transform: translateY(-4px) scale(1.02);
-    }
-    div[data-testid="stMetric"] label {
-        color: var(--text-dim) !important; font-size: 0.68rem !important;
-        font-weight: 600 !important; letter-spacing: 1.8px; text-transform: uppercase;
-    }
-    div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
-        color: var(--text-white) !important; font-size: 1.4rem !important;
-        font-weight: 800 !important; letter-spacing: -0.5px; white-space: nowrap; overflow: visible;
-    }
-    div[data-testid="stMetric"] div[data-testid="stMetricDelta"] {
-        color: var(--amber) !important; font-size: 0.7rem !important; font-weight: 500 !important;
-    }
+/* ── Buttons ─────────────────────────────── */
+.stButton > button {
+    background: linear-gradient(135deg, #b86a18, var(--amber)) !important;
+    color: #07070a !important; border: none !important; border-radius: 10px !important;
+    font-weight: 700 !important; font-size: 0.78rem !important;
+    letter-spacing: 0.5px !important; transition: all 0.3s ease !important;
+}
+.stButton > button:hover {
+    background: linear-gradient(135deg, var(--amber), var(--amber2)) !important;
+    box-shadow: 0 0 28px rgba(232,147,58,0.22) !important;
+    transform: translateY(-2px) !important;
+}
 
-    .noon-header {
-        text-align: center; padding: 50px 0 10px 0; position: relative;
-        animation: fadeInUp 0.8s ease-out;
-    }
-    .noon-header::before {
-        content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
-        width: 300px; height: 200px;
-        background: radial-gradient(ellipse, rgba(232,147,58,0.06) 0%, transparent 70%);
-        pointer-events: none; animation: fadeIn 1.5s ease-out;
-    }
-    .noon-badge {
-        display: inline-block; background: rgba(232, 147, 58, 0.06);
-        border: 1px solid rgba(232, 147, 58, 0.12); color: var(--amber);
-        padding: 5px 18px; border-radius: 100px; font-size: 0.65rem;
-        font-weight: 600; letter-spacing: 2.5px; text-transform: uppercase;
-        margin-bottom: 18px; font-family: 'Inter', sans-serif;
-        animation: scaleIn 0.6s ease-out 0.2s backwards;
-    }
-    .noon-title {
-        font-family: 'Playfair Display', serif !important;
-        font-size: 2.8rem !important; font-weight: 700 !important;
-        color: var(--text-white) !important; letter-spacing: -1px;
-        margin: 0 !important; line-height: 1.15 !important;
-    }
-    .noon-title span {
-        background: linear-gradient(135deg, #f0a852, #e8933a, #d4a850);
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        background-size: 200% auto; animation: shimmer 4s linear infinite;
-    }
-    .noon-sub {
-        text-align: center; color: var(--text-dim); font-size: 0.88rem;
-        margin: 12px 0 40px 0; font-weight: 400; line-height: 1.6; letter-spacing: 0.2px;
-        animation: fadeIn 1s ease-out 0.4s backwards;
-    }
+/* ── Form inputs ─────────────────────────── */
+.stSlider > div > div > div > div { background: var(--amber) !important; }
+.stSlider label, .stSelectbox label,
+.stMultiSelect label, .stTextInput label {
+    color: var(--td) !important; font-size: 0.77rem !important; font-weight: 500 !important;
+}
+.stSelectbox > div > div, .stMultiSelect > div > div {
+    background: var(--bg2) !important; border-color: var(--border) !important;
+    color: var(--tl) !important; border-radius: 10px !important;
+}
+.stTextInput > div > div > input {
+    background: var(--bg2) !important; border-color: var(--border) !important;
+    color: var(--tl) !important; border-radius: 10px !important;
+}
 
-    .noon-section {
-        display: flex; align-items: center; gap: 16px;
-        margin: 55px 0 28px 0; animation: fadeInUp 0.6s ease-out;
-    }
-    .noon-section-dot {
-        width: 8px; height: 8px; border-radius: 50%; background: var(--amber);
-        box-shadow: 0 0 12px rgba(232,147,58,0.3); flex-shrink: 0;
-        animation: pulseGlow 2.5s ease-in-out infinite;
-    }
-    .noon-section-info { flex-shrink: 0; }
-    .noon-section-title {
-        font-family: 'Playfair Display', serif; font-size: 1.25rem;
-        font-weight: 600; color: var(--text-white); margin: 0;
-        letter-spacing: -0.3px; line-height: 1.2;
-    }
-    .noon-section-sub {
-        font-size: 0.72rem; color: var(--text-dim); margin: 3px 0 0 0;
-        font-weight: 400; letter-spacing: 0.3px;
-    }
-    .noon-section-line {
-        flex-grow: 1; height: 1px;
-        background: linear-gradient(90deg, rgba(232,147,58,0.15) 0%, transparent 100%);
-    }
+/* ── Charts / Cards ──────────────────────── */
+.noon-chart {
+    background: linear-gradient(145deg, var(--bg2), var(--bg3));
+    border: 1px solid var(--border); border-radius: 18px;
+    padding: 8px; margin-bottom: 16px;
+    transition: all 0.4s ease; position: relative; overflow: hidden;
+}
+.noon-chart::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(232,147,58,0.1), transparent);
+}
+.noon-chart:hover {
+    border-color: var(--border2);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.4), 0 0 40px rgba(232,147,58,0.04);
+}
 
-    .noon-chart {
-        background: linear-gradient(145deg, rgba(12,12,16,0.98), rgba(16,15,18,0.95));
-        border: 1px solid rgba(232, 147, 58, 0.05); border-radius: 18px;
-        padding: 8px; margin-bottom: 18px;
-        box-shadow: 0 4px 25px rgba(0,0,0,0.3);
-        transition: all 0.45s cubic-bezier(0.4, 0, 0.2, 1);
-        position: relative; overflow: hidden;
-        animation: fadeInUp 0.7s ease-out backwards;
-    }
-    .noon-chart::before {
-        content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
-        background: linear-gradient(90deg, transparent 0%, rgba(232,147,58,0.08) 50%, transparent 100%);
-    }
-    .noon-chart:hover {
-        border-color: rgba(232, 147, 58, 0.15);
-        box-shadow: 0 8px 40px rgba(0,0,0,0.45), 0 0 60px rgba(232, 147, 58, 0.04);
-        transform: translateY(-3px);
-    }
-    .chart-left .noon-chart { animation-delay: 0.1s; }
-    .chart-right .noon-chart { animation-delay: 0.25s; }
+/* ── Section headers ─────────────────────── */
+.sec-wrap {
+    display: flex; align-items: center; gap: 16px;
+    margin: 52px 0 26px 0;
+}
+.sec-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; border-radius: 50%;
+    background: linear-gradient(135deg, #b86a18, var(--amber));
+    color: #07070a; font-size: 0.72rem; font-weight: 900;
+    flex-shrink: 0; box-shadow: 0 0 16px rgba(232,147,58,0.28);
+}
+.sec-title {
+    font-family: 'Playfair Display', serif; font-size: 1.2rem;
+    font-weight: 600; color: var(--tw); margin: 0; letter-spacing: -0.3px;
+}
+.sec-sub { font-size: 0.7rem; color: var(--td); margin: 2px 0 0 0; }
+.sec-line {
+    flex-grow: 1; height: 1px;
+    background: linear-gradient(90deg, rgba(232,147,58,0.14) 0%, transparent 100%);
+}
 
-    .stButton > button {
-        background: linear-gradient(135deg, #c47520, #e8933a) !important;
-        color: #08080a !important; border: none !important; border-radius: 10px !important;
-        font-weight: 700 !important; font-size: 0.8rem !important;
-        padding: 8px 22px !important; letter-spacing: 0.5px !important;
-        transition: all 0.3s ease !important;
-    }
-    .stButton > button:hover {
-        background: linear-gradient(135deg, #e8933a, #f0a852) !important;
-        box-shadow: 0 0 30px rgba(232, 147, 58, 0.25) !important;
-        transform: translateY(-2px) !important;
-    }
+/* ── Caption bars ────────────────────────── */
+.cap {
+    background: rgba(232,147,58,0.03);
+    border: 1px solid rgba(232,147,58,0.06);
+    border-radius: 12px; padding: 10px 16px; margin: -8px 0 22px 0;
+    font-size: 0.7rem; color: var(--td); line-height: 1.6;
+}
+.cap b { color: #a89070; }
 
-    .stSlider > div > div > div > div { background: var(--amber) !important; }
-    .stSlider label, .stSelectbox label, .stMultiSelect label, .stTextInput label {
-        color: var(--text-dim) !important; font-size: 0.78rem !important; font-weight: 500 !important;
-    }
-    .stSelectbox > div > div, .stMultiSelect > div > div {
-        background: rgba(14,14,18,0.95) !important;
-        border-color: rgba(232,147,58,0.1) !important;
-        color: var(--text-light) !important; border-radius: 10px !important;
-        transition: border-color 0.3s ease, box-shadow 0.3s ease !important;
-    }
-    .stSelectbox > div > div:focus-within, .stMultiSelect > div > div:focus-within {
-        border-color: rgba(232,147,58,0.3) !important;
-        box-shadow: 0 0 15px rgba(232,147,58,0.08) !important;
-    }
-    .stTextInput > div > div > input {
-        background: rgba(14,14,18,0.95) !important;
-        border-color: rgba(232,147,58,0.1) !important;
-        color: var(--text-light) !important; border-radius: 10px !important;
-        transition: border-color 0.3s ease, box-shadow 0.3s ease !important;
-    }
-    .stTextInput > div > div > input:focus {
-        border-color: rgba(232,147,58,0.3) !important;
-        box-shadow: 0 0 15px rgba(232,147,58,0.08) !important;
-    }
+/* ── Insight cards ───────────────────────── */
+.ic-row { display: flex; gap: 12px; margin: 16px 0 28px 0; flex-wrap: wrap; }
+.ic {
+    flex: 1; min-width: 190px;
+    background: linear-gradient(145deg, var(--bg2), var(--bg3));
+    border: 1px solid var(--border); border-radius: 14px;
+    padding: 16px 18px; position: relative; overflow: hidden;
+    transition: border-color 0.3s ease, transform 0.3s ease;
+}
+.ic:hover { border-color: var(--border2); transform: translateY(-2px); }
+.ic::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(232,147,58,0.1), transparent);
+}
+.ic-lbl { color: var(--tm); font-size: 0.58rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 5px; }
+.ic-val { color: var(--amber); font-size: 1.1rem; font-weight: 800; letter-spacing: -0.3px; margin-bottom: 4px; }
+.ic-desc { color: var(--td); font-size: 0.7rem; line-height: 1.5; }
+.ic-desc b { color: var(--tl); font-weight: 600; }
 
-    details {
-        background: rgba(12,12,16,0.95) !important;
-        border: 1px solid rgba(232, 147, 58, 0.06) !important;
-        border-radius: 14px !important; transition: all 0.3s ease !important;
-    }
-    details:hover { border-color: rgba(232, 147, 58, 0.12) !important; }
-    details summary { color: var(--amber) !important; font-weight: 600 !important; font-size: 0.9rem !important; }
+/* ── Fact banners ────────────────────────── */
+.fb {
+    background: linear-gradient(135deg, rgba(232,147,58,0.04), rgba(212,168,80,0.03));
+    border: 1px solid rgba(232,147,58,0.09); border-radius: 14px;
+    padding: 14px 20px; margin: 8px 0 28px 0;
+    display: flex; align-items: flex-start; gap: 12px;
+}
+.fb-icon { font-size: 1.3rem; flex-shrink: 0; margin-top: 1px; }
+.fb-text { color: var(--td); font-size: 0.76rem; line-height: 1.6; }
+.fb-text b { color: var(--amber); }
 
-    .stDataFrame {
-        border: 1px solid rgba(232, 147, 58, 0.06) !important;
-        border-radius: 14px !important; animation: fadeInUp 0.6s ease-out;
-    }
+/* ── Hall of Fame ────────────────────────── */
+.hof-wrap { display: flex; gap: 10px; flex-wrap: wrap; margin: 0 0 30px 0; }
+.hof-card {
+    flex: 1; min-width: 130px;
+    background: linear-gradient(145deg, var(--bg2), var(--bg3));
+    border: 1px solid var(--border); border-radius: 14px;
+    padding: 16px 14px; text-align: center;
+    position: relative; overflow: hidden;
+    transition: border-color 0.3s ease, transform 0.3s ease;
+}
+.hof-card:hover { border-color: var(--border2); transform: translateY(-3px); }
+.hof-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(232,147,58,0.2), transparent);
+}
+.hof-rank { font-size: 0.58rem; color: var(--tm); font-weight: 700; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 6px; }
+.hof-medal { font-size: 1.5rem; margin-bottom: 6px; }
+.hof-name { color: var(--tw); font-size: 0.78rem; font-weight: 700; margin-bottom: 3px; line-height: 1.3; }
+.hof-country { color: var(--td); font-size: 0.65rem; margin-bottom: 8px; }
+.hof-wins { color: var(--amber); font-size: 1.4rem; font-weight: 900; letter-spacing: -1px; }
+.hof-wins-lbl { color: var(--tm); font-size: 0.58rem; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; }
 
-    .noon-footer {
-        text-align: center; padding: 35px 0; margin-top: 50px;
-        border-top: 1px solid rgba(232, 147, 58, 0.06); animation: fadeIn 0.8s ease-out;
-    }
-    .noon-footer p { color: var(--text-muted); font-size: 0.75rem; letter-spacing: 0.5px; }
-    .noon-footer span.highlight { color: var(--amber); transition: color 0.3s ease; }
-    .noon-footer span.highlight:hover { color: var(--amber-light); }
+/* ── Route Banner ────────────────────────── */
+.route-banner {
+    background: linear-gradient(135deg, var(--bg1) 0%, #0d0b10 50%, var(--bg1) 100%);
+    border: 1px solid var(--border); border-radius: 20px;
+    padding: 28px 32px; margin: 0 0 10px 0; position: relative; overflow: hidden;
+}
+.route-banner::before {
+    content: '26.2'; position: absolute; right: 24px; top: 50%; transform: translateY(-50%);
+    font-size: 6rem; font-weight: 900; color: rgba(232,147,58,0.04);
+    letter-spacing: -4px; line-height: 1; pointer-events: none;
+}
+.route-eyebrow {
+    font-size: 0.6rem; font-weight: 700; letter-spacing: 3px;
+    text-transform: uppercase; color: var(--amber); margin-bottom: 8px;
+}
+.route-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.9rem; font-weight: 800; color: var(--tw);
+    letter-spacing: -0.5px; margin: 0 0 4px 0; line-height: 1.1;
+}
+.route-title span { color: var(--amber); }
+.route-subtitle { color: var(--td); font-size: 0.78rem; margin: 0 0 20px 0; }
+.route-line-wrap { display: flex; align-items: center; gap: 0; margin-bottom: 8px; }
+.route-dot-s {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--amber); flex-shrink: 0;
+    box-shadow: 0 0 10px rgba(232,147,58,0.5);
+}
+.route-path { flex: 1; position: relative; height: 3px; margin: 0 4px; }
+.route-path-line {
+    width: 100%; height: 100%;
+    background: linear-gradient(90deg, var(--amber) 0%, #c47520 40%, #6a3a0a 70%, rgba(232,147,58,0.15) 100%);
+    border-radius: 2px;
+}
+.route-hill-marker {
+    position: absolute; top: -22px; left: 72%;
+    transform: translateX(-50%); text-align: center;
+}
+.route-hill-label {
+    background: rgba(232,70,50,0.12); border: 1px solid rgba(232,70,50,0.2);
+    color: #e84632; font-size: 0.5rem; font-weight: 700; letter-spacing: 1px;
+    padding: 2px 6px; border-radius: 4px; white-space: nowrap; text-transform: uppercase;
+}
+.route-dot-e {
+    width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+    border: 2px solid rgba(232,147,58,0.35); background: rgba(232,147,58,0.08);
+}
+.route-stops { display: flex; justify-content: space-between; margin-top: 4px; }
+.route-stop { font-size: 0.6rem; color: var(--tm); }
+.route-stop.active { color: var(--amber); }
 
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    .stDeployButton {display: none;}
+/* ── Milestone strip ─────────────────────── */
+.ms-strip { display: flex; gap: 8px; margin: 18px 0 32px 0; flex-wrap: wrap; }
+.ms {
+    flex: 1; min-width: 140px;
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px; position: relative; overflow: hidden;
+}
+.ms::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px;
+    background: linear-gradient(180deg, var(--amber), transparent);
+}
+.ms-year { color: var(--amber); font-size: 0.72rem; font-weight: 800; margin-bottom: 4px; }
+.ms-text { color: var(--td); font-size: 0.67rem; line-height: 1.5; }
+.ms-text b { color: var(--tl); }
 
-    .stSpinner > div { border-color: var(--amber) !important; }
-    [data-testid="stHorizontalBlock"] > div { transition: all 0.3s ease; }
+/* ── Overview card ───────────────────────── */
+.ov-card {
+    background: linear-gradient(145deg, var(--bg2), var(--bg3));
+    border: 1px solid var(--border); border-radius: 16px;
+    padding: 22px 26px; margin-bottom: 28px; position: relative; overflow: hidden;
+}
+.ov-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(232,147,58,0.14), transparent);
+}
+.ov-lbl { color: var(--amber); font-size: 0.6rem; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase; margin-bottom: 10px; }
+.ov-text { color: #8a8278; font-size: 0.79rem; line-height: 1.72; margin: 0; }
+.ov-text b { color: var(--tl); }
+.ov-tags { margin-top: 14px; }
+.ov-tag {
+    display: inline-block; background: rgba(232,147,58,0.07);
+    border: 1px solid rgba(232,147,58,0.13); color: var(--amber);
+    padding: 3px 10px; border-radius: 100px; font-size: 0.6rem;
+    font-weight: 600; letter-spacing: 1px; margin: 2px 3px 0 0;
+}
 
-    /* Hide image expand button for chart images */
-    button[title="View fullscreen"] { display: none !important; }
+/* ── Info / Export cards ─────────────────── */
+.info-card, .export-card {
+    background: linear-gradient(145deg, var(--bg2), var(--bg3));
+    border: 1px solid var(--border); border-radius: 16px;
+    padding: 22px 26px; margin: 10px 0 28px 0;
+}
+.info-card h4, .export-card h4 {
+    color: var(--amber); font-size: 0.6rem; font-weight: 700;
+    letter-spacing: 2.5px; text-transform: uppercase; margin: 0 0 16px 0;
+}
+.info-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px;
+}
+.ig-lbl { color: var(--tm); font-size: 0.58rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 3px; }
+.ig-val { color: var(--tl); font-size: 0.77rem; font-weight: 500; }
 
-    /* Section number badges */
-    .section-badge {
-        display: inline-flex; align-items: center; justify-content: center;
-        width: 28px; height: 28px; border-radius: 50%;
-        background: linear-gradient(135deg, #c47520, #e8933a);
-        color: #08080a; font-size: 0.75rem; font-weight: 800;
-        flex-shrink: 0; box-shadow: 0 0 12px rgba(232,147,58,0.3);
-    }
+/* ── Footer ──────────────────────────────── */
+.footer {
+    text-align: center; padding: 36px 0; margin-top: 40px;
+    border-top: 1px solid var(--border);
+}
+.footer p { color: var(--tm); font-size: 0.73rem; letter-spacing: 0.4px; line-height: 1.7; }
+.footer b { color: var(--amber); font-weight: 600; }
 
-    /* Chart captions */
-    .chart-caption {
-        background: rgba(232,147,58,0.04);
-        border-top: 1px solid rgba(232,147,58,0.08);
-        border-radius: 0 0 14px 14px;
-        padding: 10px 16px;
-        margin-top: -8px;
-        margin-bottom: 18px;
-    }
-    .chart-caption p {
-        color: #6a6460; font-size: 0.7rem; line-height: 1.55;
-        margin: 0; font-weight: 400;
-    }
-    .chart-caption p b { color: #a89880; font-weight: 600; }
-
-    /* Overview intro box */
-    .overview-box {
-        background: linear-gradient(145deg, rgba(14,14,18,0.98), rgba(16,15,20,0.95));
-        border: 1px solid rgba(232,147,58,0.08); border-radius: 16px;
-        padding: 22px 28px; margin-bottom: 32px; position: relative; overflow: hidden;
-    }
-    .overview-box::before {
-        content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
-        background: linear-gradient(90deg, transparent, rgba(232,147,58,0.15), transparent);
-    }
-    .overview-box h4 {
-        color: #e8933a; font-size: 0.65rem; font-weight: 700;
-        letter-spacing: 2.5px; text-transform: uppercase; margin: 0 0 10px 0;
-    }
-    .overview-box p {
-        color: #8a8278; font-size: 0.8rem; line-height: 1.7; margin: 0;
-    }
-    .overview-box p b { color: #c8c0b0; }
-    .overview-tag {
-        display: inline-block; background: rgba(232,147,58,0.08);
-        border: 1px solid rgba(232,147,58,0.15); color: #e8933a;
-        padding: 3px 10px; border-radius: 100px; font-size: 0.62rem;
-        font-weight: 600; letter-spacing: 1px; margin: 2px 3px 0 0;
-    }
-
-    /* Export section */
-    .export-box {
-        background: linear-gradient(145deg, rgba(14,14,18,0.98), rgba(16,15,20,0.95));
-        border: 1px solid rgba(232,147,58,0.08); border-radius: 16px;
-        padding: 24px 28px; margin: 12px 0 32px 0;
-    }
-    .export-box h4 {
-        color: #e8933a; font-size: 0.65rem; font-weight: 700;
-        letter-spacing: 2.5px; text-transform: uppercase; margin: 0 0 14px 0;
-    }
-
-    /* Dashboard info footer card */
-    .info-card {
-        background: linear-gradient(145deg, rgba(14,14,18,0.98), rgba(16,15,20,0.95));
-        border: 1px solid rgba(232,147,58,0.08); border-radius: 16px;
-        padding: 24px 28px; margin: 12px 0 32px 0;
-    }
-    .info-card h4 {
-        color: #e8933a; font-size: 0.65rem; font-weight: 700;
-        letter-spacing: 2.5px; text-transform: uppercase; margin: 0 0 14px 0;
-    }
-    .info-grid {
-        display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-        gap: 12px; margin-top: 10px;
-    }
-    .info-item { }
-    .info-item-label {
-        color: #4a4540; font-size: 0.6rem; font-weight: 700;
-        letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 3px;
-    }
-    .info-item-value { color: #c8c0b0; font-size: 0.78rem; font-weight: 500; }
-
-    /* Insight cards */
-    /* Insight cards */
-    .insight-row {
-        display: flex; gap: 14px; margin: 18px 0 32px 0; flex-wrap: wrap;
-    }
-    .insight-card {
-        flex: 1; min-width: 200px;
-        background: linear-gradient(145deg, rgba(14,14,18,0.98), rgba(18,17,20,0.95));
-        border: 1px solid rgba(232,147,58,0.08); border-radius: 14px;
-        padding: 18px 20px; position: relative; overflow: hidden;
-        transition: border-color 0.3s ease, transform 0.3s ease;
-    }
-    .insight-card:hover {
-        border-color: rgba(232,147,58,0.2);
-        transform: translateY(-2px);
-    }
-    .insight-card::before {
-        content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
-        background: linear-gradient(90deg, transparent, rgba(232,147,58,0.12), transparent);
-    }
-    .insight-icon { font-size: 1.3rem; margin-bottom: 8px; }
-    .insight-label {
-        color: #4a4540; font-size: 0.6rem; font-weight: 700;
-        letter-spacing: 2px; text-transform: uppercase; margin-bottom: 6px;
-    }
-    .insight-value {
-        color: #e8933a; font-size: 1.15rem; font-weight: 800;
-        letter-spacing: -0.3px; margin-bottom: 4px;
-    }
-    .insight-desc {
-        color: #7a7468; font-size: 0.72rem; line-height: 1.5; font-weight: 400;
-    }
-    .insight-desc b { color: #c8c0b0; font-weight: 600; }
-
-    /* Fun fact banner */
-    .fact-banner {
-        background: linear-gradient(135deg, rgba(232,147,58,0.04), rgba(212,168,80,0.04));
-        border: 1px solid rgba(232,147,58,0.1); border-radius: 14px;
-        padding: 16px 22px; margin: 10px 0 30px 0;
-        display: flex; align-items: flex-start; gap: 14px;
-    }
-    .fact-banner-icon { font-size: 1.4rem; flex-shrink: 0; margin-top: 2px; }
-    .fact-banner-text { color: #7a7468; font-size: 0.78rem; line-height: 1.6; }
-    .fact-banner-text b { color: #e8933a; }
+/* ── Misc ────────────────────────────────── */
+#MainMenu, footer, .stDeployButton { visibility: hidden; display: none; }
+button[title="View fullscreen"] { display: none !important; }
+.stSpinner > div { border-color: var(--amber) !important; }
+.stDataFrame { border: 1px solid var(--border) !important; border-radius: 14px !important; }
+details {
+    background: var(--bg2) !important; border: 1px solid var(--border) !important;
+    border-radius: 14px !important;
+}
+details summary { color: var(--amber) !important; font-weight: 600 !important; }
 </style>
 """, unsafe_allow_html=True)
 
 
-
-# ═══════════════════════════════════════════════════════════════
-# LOAD DATA (cached)
-# ═══════════════════════════════════════════════════════════════
+# ── Data ─────────────────────────────────────────────────────────────────────
 @st.cache_data
 def get_data():
     return load_and_merge_data()
@@ -422,38 +360,18 @@ except Exception as e:
     st.stop()
 
 
-# ═══════════════════════════════════════════════════════════════
-# CHART CACHE — render once per filter, store as PNG bytes
-# ═══════════════════════════════════════════════════════════════
-@st.cache_data(max_entries=5, ttl=300)
-def render_chart(_chart_func, df_hash, chart_name):
-    """Render chart to PNG bytes and cache. df_hash used for cache key."""
-    # Reconstruct df from session — we pass the actual df via closure below
-    return None  # placeholder — real rendering done in render_chart_real
-
-def get_df_hash(filtered_df):
-    """Fast hash of dataframe for cache keys."""
-    return hash((len(filtered_df), tuple(filtered_df.columns),
-                 filtered_df.iloc[0].values.tobytes() if len(filtered_df) > 0 else b"",
-                 filtered_df.iloc[-1].values.tobytes() if len(filtered_df) > 0 else b""))
-
-
-# ═══════════════════════════════════════════════════════════════
-# SIDEBAR
-# ═══════════════════════════════════════════════════════════════
+# ── Sidebar ───────────────────────────────────────────────────────────────────
 st.sidebar.markdown("""
-<div style='text-align:center; padding: 22px 0 14px 0;'>
-    <div style='width: 48px; height: 48px; margin: 0 auto 12px auto;
-         background: radial-gradient(circle, rgba(232,147,58,0.12), transparent);
-         border: 1px solid rgba(232,147,58,0.15); border-radius: 14px;
-         display: flex; align-items: center; justify-content: center;'>
-        <span style='font-size: 1.5rem;'>🏃</span>
+<div style='text-align:center;padding:24px 0 16px 0;'>
+    <div style='width:52px;height:52px;margin:0 auto 12px;
+         background:rgba(232,147,58,0.08);border:1px solid rgba(232,147,58,0.18);
+         border-radius:14px;display:flex;align-items:center;justify-content:center;'>
+        <span style='font-size:1.6rem;line-height:1;'>🏃</span>
     </div>
-    <h2 style='margin:0; font-family: Playfair Display, serif;
-        color: #f5f0e8; font-size: 1.15rem; font-weight: 700;
-        letter-spacing: -0.3px;'>Boston Marathon</h2>
-    <p style='color: #4a4540; font-size: 0.65rem; margin: 5px 0 0 0;
-       letter-spacing: 2.5px; text-transform: uppercase; font-weight: 600;'>Analytics Dashboard</p>
+    <h2 style='margin:0;font-family:Playfair Display,serif;color:#f5f0e8;
+        font-size:1.1rem;font-weight:700;letter-spacing:-0.3px;'>Boston Marathon</h2>
+    <p style='color:#4a4540;font-size:0.6rem;margin:5px 0 0;
+       letter-spacing:2.5px;text-transform:uppercase;font-weight:700;'>Elite Dashboard</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -461,542 +379,521 @@ filtered_df = apply_filters(df)
 
 st.sidebar.markdown("---")
 st.sidebar.markdown(f"""
-<div style='background: rgba(14,14,18,0.95); border: 1px solid rgba(232,147,58,0.08);
-     border-radius: 14px; padding: 16px; text-align: center;
-     position: relative; overflow: hidden;'>
-    <div style='position:absolute; top:0; left:0; right:0; height:1px;
-         background: linear-gradient(90deg, transparent, rgba(232,147,58,0.1), transparent);'></div>
-    <span style='color: #4a4540; font-size: 0.62rem; text-transform: uppercase;
-           letter-spacing: 2px; font-weight: 600;'>Active Records</span><br>
-    <span style='color: #e8933a; font-size: 2rem; font-weight: 800;
-           letter-spacing: -1px;'>{len(filtered_df)}</span>
-    <span style='color: #3a3530; font-size: 0.85rem; font-weight: 500;'> / {len(df)}</span>
+<div style='background:var(--bg2,#0f0e13);border:1px solid rgba(232,147,58,0.08);
+     border-radius:14px;padding:16px;text-align:center;position:relative;overflow:hidden;'>
+    <div style='position:absolute;top:0;left:0;right:0;height:1px;
+         background:linear-gradient(90deg,transparent,rgba(232,147,58,0.12),transparent);'></div>
+    <span style='color:#4a4540;font-size:0.58rem;text-transform:uppercase;
+           letter-spacing:2px;font-weight:700;'>Active Records</span><br>
+    <span style='color:#e8933a;font-size:2.1rem;font-weight:900;
+           letter-spacing:-1px;'>{len(filtered_df)}</span>
+    <span style='color:#2a2520;font-size:0.9rem;font-weight:500;'> / {len(df)}</span>
+    <br><span style='color:#3a3530;font-size:0.6rem;'>of total dataset</span>
 </div>
 """, unsafe_allow_html=True)
 
 
-# ═══════════════════════════════════════════════════════════════
-# HEADER
-# ═══════════════════════════════════════════════════════════════
-st.markdown("""
-<div class="noon-header">
-    <div class="noon-badge">Data Visualization Project</div><br>
-    <span class="noon-title">Boston <span>Marathon</span></span><br>
-    <span class="noon-title" style="font-size: 2.2rem !important; opacity: 0.7;">Dashboard</span>
-</div>
-<p class="noon-sub">
-    Comprehensive historical analysis of Boston Marathon winners<br>
-    <span style="color: #e8933a; font-weight: 500;">Men's (1897-2024)</span> &
-    <span style="color: #e86850; font-weight: 500;">Women's (1966-2024)</span> -
-    Performance, Trends & Insights
-</p>
-""", unsafe_allow_html=True)
-
-
-# ═══════════════════════════════════════════════════════════════
-# HELPERS
-# ═══════════════════════════════════════════════════════════════
+# ── Helpers ───────────────────────────────────────────────────────────────────
 def mins_to_hms(m):
     try:
-        h = int(m // 60)
-        mi = int(m % 60)
-        s = int((m % 1) * 60)
+        h, mi, s = int(m//60), int(m%60), int((m%1)*60)
         return f"{h}:{mi:02d}:{s:02d}"
-    except (ValueError, TypeError):
+    except:
         return "N/A"
 
-_section_counter = [0]
+_sec_n = [0]
 def section(title, subtitle):
-    _section_counter[0] += 1
-    n = _section_counter[0]
+    _sec_n[0] += 1
     st.markdown(f"""
-    <div class="noon-section">
-        <div class="section-badge">{n}</div>
-        <div class="noon-section-info">
-            <p class="noon-section-title">{title}</p>
-            <p class="noon-section-sub">{subtitle}</p>
+    <div class="sec-wrap">
+        <div class="sec-badge">{_sec_n[0]}</div>
+        <div>
+            <p class="sec-title">{title}</p>
+            <p class="sec-sub">{subtitle}</p>
         </div>
-        <div class="noon-section-line"></div>
-    </div>
-    """, unsafe_allow_html=True)
+        <div class="sec-line"></div>
+    </div>""", unsafe_allow_html=True)
 
-def show_chart(chart_func, data, chart_name="Chart"):
-    """Render chart to bytes and display as image. Memory-safe."""
+def chart(fn, data, name="Chart"):
     try:
-        img_bytes = chart_func(data)
-        if img_bytes is not None:
-            st.image(img_bytes, use_container_width=True)
-        else:
-            st.info(f"No data available for {chart_name}")
+        b = fn(data)
+        if b: st.image(b, use_container_width=True)
+        else: st.info(f"No data for {name}")
     except Exception as e:
-        st.warning(f"Could not render {chart_name}: {str(e)[:100]}")
+        st.warning(f"Could not render {name}: {str(e)[:80]}")
     finally:
         gc.collect()
+
+def ics(*cards):
+    rows = "".join(f"""<div class="ic">
+        <div class="ic-lbl">{lbl}</div>
+        <div class="ic-val">{val}</div>
+        <div class="ic-desc">{desc}</div>
+    </div>""" for lbl, val, desc in cards)
+    st.markdown(f'<div class="ic-row">{rows}</div>', unsafe_allow_html=True)
+
+def fb(icon, text):
+    st.markdown(f"""<div class="fb">
+        <div class="fb-icon">{icon}</div>
+        <div class="fb-text">{text}</div>
+    </div>""", unsafe_allow_html=True)
+
+def cap(text):
+    st.markdown(f'<div class="cap">{text}</div>', unsafe_allow_html=True)
 
 if filtered_df.empty:
     st.warning("No data matches the current filters. Adjust the filter criteria.")
     st.stop()
 
-def insight_cards(*cards):
-    """Render a row of insight cards. Each card = (icon, label, value, desc)."""
-    items = "".join(f"""
-        <div class="insight-card">
-            <div class="insight-icon">{icon}</div>
-            <div class="insight-label">{label}</div>
-            <div class="insight-value">{value}</div>
-            <div class="insight-desc">{desc}</div>
-        </div>""" for icon, label, value, desc in cards)
-    st.markdown(f'<div class="insight-row">{items}</div>', unsafe_allow_html=True)
 
-def fact_banner(icon, text):
-    st.markdown(f"""
-    <div class="fact-banner">
-        <div class="fact-banner-icon">{icon}</div>
-        <div class="fact-banner-text">{text}</div>
-    </div>""", unsafe_allow_html=True)
-
-
-# ═══════════════════════════════════════════════════════════════
-# OVERVIEW BOX
-# ═══════════════════════════════════════════════════════════════
-_men_years = int(df[df["Gender"]=="Male"]["Year"].max()) - int(df[df["Gender"]=="Male"]["Year"].min())
-_women_years = int(df[df["Gender"]=="Female"]["Year"].max()) - int(df[df["Gender"]=="Female"]["Year"].min())
-_total_countries = df["Country"].nunique()
-st.markdown(f'''
-<div class="overview-box">
-    <h4>📋 Dashboard Overview</h4>
-    <p>
-        This dashboard explores <b>{len(df)} historical race results</b> from the Boston Marathon —
-        the world's oldest annual marathon, held every Patriots' Day since <b>1897</b>.
-        The dataset covers <b>Men's records ({int(df[df["Gender"]=="Male"]["Year"].min())}–{int(df[df["Gender"]=="Male"]["Year"].max())})</b>
-        and <b>Women's records ({int(df[df["Gender"]=="Female"]["Year"].min())}–{int(df[df["Gender"]=="Female"]["Year"].max())})</b>
-        spanning winners from <b>{_total_countries} countries</b> across 6 continents.
-        Use the sidebar filters to drill into specific years, genders, countries, or search by winner name.
-    </p>
-    <div style="margin-top:12px;">
-        <span class="overview-tag">🏃 {len(df[df["Gender"]=="Male"])} Men's Records</span>
-        <span class="overview-tag">🚺 {len(df[df["Gender"]=="Female"])} Women's Records</span>
-        <span class="overview-tag">🌍 {_total_countries} Countries</span>
-        <span class="overview-tag">📅 {int(df["Year"].max()) - int(df["Year"].min())} Year Span</span>
-        <span class="overview-tag">⏱️ 10 Chart Types</span>
+# ══════════════════════════════════════════════════════════════════════════════
+# RACE ROUTE HERO BANNER
+# ══════════════════════════════════════════════════════════════════════════════
+st.markdown("""
+<div class="route-banner">
+    <div class="route-eyebrow">Est. 1897 · Patriots Day · Every April · Boston, MA</div>
+    <h1 class="route-title">Boston <span>Marathon</span> Analytics</h1>
+    <p class="route-subtitle">127 years of champions — from Hopkinton to the Boylston Street finish line</p>
+    <div class="route-line-wrap">
+        <div class="route-dot-s"></div>
+        <div class="route-path">
+            <div class="route-path-line"></div>
+            <div class="route-hill-marker">
+                <div class="route-hill-label">⚡ Heartbreak Hill · Mile 20</div>
+            </div>
+        </div>
+        <div class="route-dot-e"></div>
+    </div>
+    <div class="route-stops">
+        <span class="route-stop active">START · Hopkinton</span>
+        <span class="route-stop">· · · 26.2 miles · · ·</span>
+        <span class="route-stop">FINISH · Boylston St, Boston</span>
     </div>
 </div>
-''', unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
-# ═══════════════════════════════════════════════════════════════
+
+# ══════════════════════════════════════════════════════════════════════════════
+# MILESTONE TIMELINE
+# ══════════════════════════════════════════════════════════════════════════════
+st.markdown("""
+<div class="ms-strip">
+    <div class="ms">
+        <div class="ms-year">1897</div>
+        <div class="ms-text"><b>First Boston Marathon.</b> 15 runners. John McDermott wins in 2:55:10 — a legend is born.</div>
+    </div>
+    <div class="ms">
+        <div class="ms-year">1924</div>
+        <div class="ms-text"><b>Standard distance set</b> at 26.2 miles (42.195 km) after Olympic standardization.</div>
+    </div>
+    <div class="ms">
+        <div class="ms-year">1967</div>
+        <div class="ms-text"><b>Kathrine Switzer</b> runs as the first numbered woman, RD tries to remove her mid-race.</div>
+    </div>
+    <div class="ms">
+        <div class="ms-year">1972</div>
+        <div class="ms-text"><b>Women officially allowed.</b> Nina Kuscsik wins the first official women's division.</div>
+    </div>
+    <div class="ms">
+        <div class="ms-year">1990s</div>
+        <div class="ms-text"><b>Kenyan dominance begins.</b> East African runners redefine what's possible in distance running.</div>
+    </div>
+    <div class="ms">
+        <div class="ms-year">2011</div>
+        <div class="ms-text"><b>Geoffrey Mutai</b> sets course record of 2:03:02 — one of the fastest marathons ever run.</div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# OVERVIEW CARD
+# ══════════════════════════════════════════════════════════════════════════════
+_tc = df["Country"].nunique()
+st.markdown(f"""
+<div class="ov-card">
+    <div class="ov-lbl">📋 Dashboard Overview</div>
+    <p class="ov-text">
+        This dashboard explores <b>{len(df)} historical race results</b> from the world's oldest annual marathon,
+        held every <b>Patriots' Day</b> since <b>1897</b>. Covering
+        <b>Men's records ({int(df[df['Gender']=='Male']['Year'].min())}–{int(df[df['Gender']=='Male']['Year'].max())})</b> and
+        <b>Women's records ({int(df[df['Gender']=='Female']['Year'].min())}–{int(df[df['Gender']=='Female']['Year'].max())})</b>,
+        spanning <b>{_tc} nations</b> across 6 continents.
+        Use the sidebar to filter by year, gender, finishing time, country, or winner name.
+    </p>
+    <div class="ov-tags">
+        <span class="ov-tag">🏃 {len(df[df['Gender']=='Male'])} Men's Records</span>
+        <span class="ov-tag">🚺 {len(df[df['Gender']=='Female'])} Women's Records</span>
+        <span class="ov-tag">🌍 {_tc} Nations</span>
+        <span class="ov-tag">📅 {int(df['Year'].max()) - int(df['Year'].min())} Year Span</span>
+        <span class="ov-tag">📊 10 Chart Types</span>
+        <span class="ov-tag">⚡ Live Filters</span>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # KPI CARDS
-# ═══════════════════════════════════════════════════════════════
-time_data = filtered_df["Time_Minutes"].dropna()
-avg_time = time_data.mean() if len(time_data) > 0 else 0
-fastest_time = time_data.min() if len(time_data) > 0 else 0
-fastest_row = filtered_df.loc[filtered_df["Time_Minutes"].idxmin()] if len(time_data) > 0 else None
-total_countries = filtered_df["Country"].nunique()
-speed_data = filtered_df["Speed_MPH"].dropna()
-avg_speed = speed_data.mean() if len(speed_data) > 0 else 0
-year_span = f"{int(filtered_df['Year'].min())}-{int(filtered_df['Year'].max())}"
+# ══════════════════════════════════════════════════════════════════════════════
+td = filtered_df["Time_Minutes"].dropna()
+avg_t = td.mean() if len(td) else 0
+fast_t = td.min() if len(td) else 0
+fast_row = filtered_df.loc[filtered_df["Time_Minutes"].idxmin()] if len(td) else None
+avg_spd = filtered_df["Speed_MPH"].dropna().mean() if len(filtered_df) else 0
+yr_span = f"{int(filtered_df['Year'].min())}–{int(filtered_df['Year'].max())}"
 
 k1, k2, k3 = st.columns(3)
-k1.metric("Total Records", f"{len(filtered_df)}", delta=f"{len(filtered_df['Gender'].unique())} categories")
-k2.metric("Year Span", year_span)
-k3.metric("Avg Finish Time", mins_to_hms(avg_time))
+k1.metric("Total Records", f"{len(filtered_df)}", delta=f"{filtered_df['Gender'].nunique()} gender categories")
+k2.metric("Year Span", yr_span)
+k3.metric("Avg Finish Time", mins_to_hms(avg_t))
 
 k4, k5, k6 = st.columns(3)
-fastest_name = fastest_row['Winner'] if fastest_row is not None else "N/A"
-k4.metric("Fastest Record", mins_to_hms(fastest_time), delta=f"{fastest_name}")
-k5.metric("Countries", f"{total_countries}")
-k6.metric("Avg Speed", f"{avg_speed:.2f} mph")
+k4.metric("Course Record", mins_to_hms(fast_t), delta=fast_row["Winner"] if fast_row is not None else "")
+k5.metric("Nations Represented", f"{filtered_df['Country'].nunique()}")
+k6.metric("Avg Winning Speed", f"{avg_spd:.2f} mph")
 
 
-# ═══════════════════════════════════════════════════════════════
-# SECTION 1 — OVERVIEW
-# ═══════════════════════════════════════════════════════════════
-section("Overview & Composition", "Country distribution and time frequency analysis")
+# ══════════════════════════════════════════════════════════════════════════════
+# HALL OF FAME
+# ══════════════════════════════════════════════════════════════════════════════
+section("Hall of Fame", "Most decorated champions in Boston Marathon history")
 
-col1, col2 = st.columns(2)
-with col1:
-    st.markdown('<div class="chart-left"><div class="noon-chart">', unsafe_allow_html=True)
-    show_chart(plot_pie_chart, filtered_df, "Pie Chart")
-    st.markdown('</div></div>', unsafe_allow_html=True)
-with col2:
-    st.markdown('<div class="chart-right"><div class="noon-chart">', unsafe_allow_html=True)
-    show_chart(plot_histogram, filtered_df, "Histogram")
-    st.markdown('</div></div>', unsafe_allow_html=True)
+_wins = filtered_df.groupby("Winner").agg(
+    wins=("Year", "count"),
+    country=("Country", "first"),
+    first=("Year", "min"),
+    last=("Year", "max")
+).sort_values("wins", ascending=False).head(5).reset_index()
 
-st.markdown('''
-<div class="chart-caption"><p>
-<b>Winners by Country</b> — The pie chart reveals national dominance patterns.
-<b>Histogram</b> — Distribution of winning times shows how elite performance clusters in a tight band,
-with the long right tail representing early-era races before modern training methods.
-</p></div>''', unsafe_allow_html=True)
+medals = ["🥇", "🥈", "🥉", "🏅", "🏅"]
+rank_lbl = ["1ST", "2ND", "3RD", "4TH", "5TH"]
 
+hof_cards = "".join(f"""
+<div class="hof-card">
+    <div class="hof-rank">{rank_lbl[i]}</div>
+    <div class="hof-medal">{medals[i]}</div>
+    <div class="hof-name">{row['Winner']}</div>
+    <div class="hof-country">{row['country']} · {int(row['first'])}–{int(row['last'])}</div>
+    <div class="hof-wins">{row['wins']}</div>
+    <div class="hof-wins-lbl">Wins</div>
+</div>""" for i, row in _wins.iterrows() if i < 5)
+
+st.markdown(f'<div class="hof-wrap">{hof_cards}</div>', unsafe_allow_html=True)
+
+fb("🏆",
+   "<b>Clarence DeMar</b> won Boston 7 times (1911–1930) — a record that stood for nearly a century. "
+   "Modern Kenyan runners like <b>Robert Kipkoech Cheruiyot</b> (4 wins) dominate the modern era. "
+   "The Hall of Fame updates dynamically with your current filters.")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 1 — OVERVIEW & COMPOSITION
+# ══════════════════════════════════════════════════════════════════════════════
+section("Overview & Composition", "National dominance patterns and finishing time distribution")
+
+c1, c2 = st.columns(2)
+with c1:
+    st.markdown('<div class="noon-chart">', unsafe_allow_html=True)
+    chart(plot_pie_chart, filtered_df, "Pie Chart")
+    st.markdown('</div>', unsafe_allow_html=True)
+with c2:
+    st.markdown('<div class="noon-chart">', unsafe_allow_html=True)
+    chart(plot_histogram, filtered_df, "Histogram")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+cap("<b>Winners by Country</b> — Donut chart reveals national dominance at a glance. "
+    "<b>Finishing Time Distribution</b> — Histogram shows elite performance clustering; "
+    "the long right tail represents early-era races before modern training science and carbon-fiber shoe technology.")
+
+_tc2 = filtered_df["Country"].value_counts()
+_top_c = _tc2.index[0] if len(_tc2) else "N/A"
+_top_n = _tc2.iloc[0] if len(_tc2) else 0
+_pct = round(_top_n / len(filtered_df) * 100, 1) if len(filtered_df) else 0
+_mode_t = int(filtered_df["Time_Minutes"].dropna().mode().iloc[0]) if len(filtered_df) else 0
+
+ics(
+    ("Dominant Nation", _top_c,
+     f"Won <b>{_top_n}</b> races — <b>{_pct}%</b> of all filtered records. "
+     f"<b>{filtered_df['Country'].nunique()}</b> nations have claimed the Boston finish line."),
+    ("Most Common Finish", f"~{_mode_t} min",
+     f"Elite times cluster tightly near <b>{_mode_t} min</b> ({_mode_t//60}h {_mode_t%60}m). "
+     f"Modern winners are within 5–10 minutes of the all-time record."),
+    ("Dataset Snapshot", f"{len(filtered_df)} records",
+     f"<b>{len(filtered_df)}</b> results across <b>{filtered_df['Year'].nunique()}</b> years "
+     f"and <b>{filtered_df['Gender'].nunique()}</b> gender categor{'y' if filtered_df['Gender'].nunique()==1 else 'ies'}."),
+)
 gc.collect()
 
-# Section 1 insights
-_top_country = filtered_df["Country"].value_counts().index[0] if len(filtered_df) > 0 else "N/A"
-_top_count   = filtered_df["Country"].value_counts().iloc[0]  if len(filtered_df) > 0 else 0
-_total_c     = filtered_df["Country"].nunique()
-_pct_top     = round(_top_count / len(filtered_df) * 100, 1) if len(filtered_df) > 0 else 0
-_time_mode_bin = int(filtered_df["Time_Minutes"].dropna().mode().iloc[0]) if len(filtered_df) > 0 else 0
 
-insight_cards(
-    ("🌍", "Dominant Nation", _top_country,
-     f"Won <b>{_top_count}</b> races — <b>{_pct_top}%</b> of all filtered records. "
-     f"A total of <b>{_total_c}</b> nations have won the Boston Marathon."),
-    ("⏱️", "Most Common Finish", f"~{_time_mode_bin} min",
-     f"The most frequent winning time falls around <b>{_time_mode_bin} minutes</b> "
-     f"({_time_mode_bin//60}h {_time_mode_bin%60}m). Times cluster tightly among elite runners."),
-    ("📊", "Dataset Snapshot", f"{len(filtered_df)} records",
-     f"Showing <b>{len(filtered_df)}</b> race results across "
-     f"<b>{filtered_df['Year'].nunique()}</b> years and "
-     f"<b>{filtered_df['Gender'].nunique()}</b> gender categor{'y' if filtered_df['Gender'].nunique()==1 else 'ies'}."),
-)
-
-# ═══════════════════════════════════════════════════════════════
-# SECTION 2 — TRENDS
-# ═══════════════════════════════════════════════════════════════
-section("Performance Trends", "How winning times have evolved across decades")
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 2 — PERFORMANCE TRENDS
+# ══════════════════════════════════════════════════════════════════════════════
+section("Performance Trends", "How winning times evolved — and why the decline accelerated post-1970")
 
 st.markdown('<div class="noon-chart">', unsafe_allow_html=True)
-show_chart(plot_line_chart, filtered_df, "Line Chart")
+chart(plot_line_chart, filtered_df, "Line Chart")
 st.markdown('</div>', unsafe_allow_html=True)
 
-col3, col4 = st.columns(2)
-with col3:
-    st.markdown('<div class="chart-left"><div class="noon-chart">', unsafe_allow_html=True)
-    show_chart(plot_scatter, filtered_df, "Scatter Plot")
-    st.markdown('</div></div>', unsafe_allow_html=True)
-with col4:
-    st.markdown('<div class="chart-right"><div class="noon-chart">', unsafe_allow_html=True)
-    show_chart(plot_area_chart, filtered_df, "Area Chart")
-    st.markdown('</div></div>', unsafe_allow_html=True)
+c3, c4 = st.columns(2)
+with c3:
+    st.markdown('<div class="noon-chart">', unsafe_allow_html=True)
+    chart(plot_scatter, filtered_df, "Scatter")
+    st.markdown('</div>', unsafe_allow_html=True)
+with c4:
+    st.markdown('<div class="noon-chart">', unsafe_allow_html=True)
+    chart(plot_area_chart, filtered_df, "Area Chart")
+    st.markdown('</div>', unsafe_allow_html=True)
 
-st.markdown('''
-<div class="chart-caption"><p>
-<b>Line Chart</b> — The downward trend in winning times reflects advances in training, nutrition, and shoe technology.
-<b>Scatter</b> — Each dot is one race; the regression line shows the long-term improvement trajectory.
-<b>Area Chart</b> — Cumulative view of time trends, highlighting the dramatic improvement post-1970s
-when women began competing officially and training science matured.
-</p></div>''', unsafe_allow_html=True)
+cap("<b>Line Chart</b> — Amber = Men, Red = Women. The steady decline reflects advances in training, nutrition, "
+    "altitude prep, and super-shoes. <b>Scatter + Regression</b> — Dashed line is a polynomial best-fit showing "
+    "the long-term trajectory. <b>Area Chart</b> — Cumulative wins; the women's curve only starts in 1966.")
 
-gc.collect()
-
-# Section 2 insights
-_earliest = int(filtered_df["Year"].min()) if len(filtered_df) > 0 else "N/A"
-_latest   = int(filtered_df["Year"].max()) if len(filtered_df) > 0 else "N/A"
-_fastest  = filtered_df["Time_Minutes"].min() if len(filtered_df) > 0 else 0
-_slowest  = filtered_df["Time_Minutes"].max() if len(filtered_df) > 0 else 0
-_improvement = round(_slowest - _fastest, 1) if len(filtered_df) > 0 else 0
-_avg_spd  = round(filtered_df["Speed_MPH"].dropna().mean(), 2) if len(filtered_df) > 0 else 0
+_fast = filtered_df["Time_Minutes"].min() if len(td) else 0
+_slow = filtered_df["Time_Minutes"].max() if len(td) else 0
+_imp = round(_slow - _fast, 1)
+_aspd = round(filtered_df["Speed_MPH"].dropna().mean(), 2) if len(filtered_df) else 0
+_fast_row = filtered_df.loc[filtered_df["Time_Minutes"].idxmin()] if len(td) else None
 
 def fmt(m):
     try: return f"{int(m//60)}h {int(m%60)}m {int((m%1)*60)}s"
     except: return "N/A"
 
-insight_cards(
-    ("🚀", "Fastest Winning Time", fmt(_fastest),
-     f"Set in <b>{int(filtered_df.loc[filtered_df['Time_Minutes'].idxmin(),'Year'])}</b> by "
-     f"<b>{filtered_df.loc[filtered_df['Time_Minutes'].idxmin(),'Winner']}</b>. "
-     f"Elite marathons have seen dramatic speed improvements since {_earliest}."),
-    ("📉", "Time Improvement", f"{_improvement:.1f} min",
-     f"Winning times dropped by <b>{_improvement:.1f} minutes</b> from the slowest "
-     f"to the fastest in this selection — driven by better training, nutrition & shoes."),
-    ("💨", "Avg Winning Speed", f"{_avg_spd} mph",
-     f"Winners average <b>{_avg_spd} mph</b> across 26.2 miles. "
-     f"That's roughly <b>{round(60/_avg_spd*26.2,1)} min total</b> at a relentless pace."),
+ics(
+    ("Course Record", fmt(_fast),
+     f"Set in <b>{int(_fast_row['Year'])}</b> by <b>{_fast_row['Winner']}</b>. "
+     f"Marathon records are driven by optimal conditions, pacing, and competition."),
+    ("Total Improvement", f"{_imp:.1f} min",
+     f"Winning times improved by <b>{_imp:.1f} minutes</b> across the dataset. "
+     f"Better training, nutrition science, and race-day technology fuel this decline."),
+    ("Avg Winning Speed", f"{_aspd} mph",
+     f"Winners average <b>{_aspd} mph</b> across 26.2 miles — "
+     f"roughly <b>{round(60/_aspd*26.2,1) if _aspd else 'N/A'} min total</b> at a relentless pace."),
 )
 
-fact_banner("💡",
-    f"The Boston Marathon — held every <b>Patriots' Day</b> in April — is the world's oldest "
-    f"annual marathon (since <b>1897</b>). The course runs from Hopkinton to Boston, covering "
-    f"exactly <b>26.2 miles (42.195 km)</b>. The infamous 'Heartbreak Hill' at mile 20-21 "
-    f"has broken many a race strategy.")
-
-# ═══════════════════════════════════════════════════════════════
-# SECTION 3 — COMPARISONS
-# ═══════════════════════════════════════════════════════════════
-section("Comparisons & Rankings", "Country standings and decade-wise breakdowns")
-
-col5, col6 = st.columns(2)
-with col5:
-    st.markdown('<div class="chart-left"><div class="noon-chart">', unsafe_allow_html=True)
-    show_chart(plot_bar_chart, filtered_df, "Bar Chart")
-    st.markdown('</div></div>', unsafe_allow_html=True)
-with col6:
-    st.markdown('<div class="chart-right"><div class="noon-chart">', unsafe_allow_html=True)
-    show_chart(plot_countplot, filtered_df, "Count Plot")
-    st.markdown('</div></div>', unsafe_allow_html=True)
-
-st.markdown('''
-<div class="chart-caption"><p>
-<b>Bar Chart</b> — Total wins per country; dominance by USA (early era), Japan (mid-era), Kenya and Ethiopia (modern era).
-<b>Count Plot</b> — Race counts grouped by decade; shows the expansion of the women's field
-from the 1970s onward and the full historical depth of the men's competition since 1897.
-</p></div>''', unsafe_allow_html=True)
+fb("💡",
+   "The Boston Marathon is held every <b>Patriots' Day</b> in April. "
+   "The infamous <b>Heartbreak Hill</b> (miles 20–21) is a series of four hills in Newton — "
+   "coming when runners are already fatigued, it has crushed more race strategies than any single factor. "
+   "Elite runners specifically train for this section; pacing at Heartbreak Hill often decides the race.")
 
 gc.collect()
 
-# Section 3 insights
-_top3 = filtered_df["Country"].value_counts().head(3)
-_top3_str = ", ".join([f"<b>{c}</b> ({n})" for c,n in _top3.items()])
-_decades = filtered_df["Decade_Label"].value_counts()
-_best_decade = _decades.index[0] if len(_decades) > 0 else "N/A"
-_best_decade_n = _decades.iloc[0] if len(_decades) > 0 else 0
-_unique_winners = filtered_df["Winner"].nunique()
 
-insight_cards(
-    ("🏆", "Top 3 Countries", "",
-     f"The podium of nations: {_top3_str}. These countries have dominated Boston's finish line for decades."),
-    ("📅", "Most Active Decade", _best_decade,
-     f"The <b>{_best_decade}</b> had the most winners in this selection (<b>{_best_decade_n} races</b>). "
-     f"Decade trends reveal how participation and competition evolved over time."),
-    ("🏅", "Unique Champions", f"{_unique_winners}",
-     f"<b>{_unique_winners}</b> different athletes won across the filtered records. "
-     f"Some legends — like <b>Clarence DeMar</b> (7 wins) — dominated multiple eras."),
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 3 — COMPARISONS & RANKINGS
+# ══════════════════════════════════════════════════════════════════════════════
+section("Comparisons & Rankings", "National standings, decade-by-decade breakdowns, and era analysis")
+
+c5, c6 = st.columns(2)
+with c5:
+    st.markdown('<div class="noon-chart">', unsafe_allow_html=True)
+    chart(plot_bar_chart, filtered_df, "Bar Chart")
+    st.markdown('</div>', unsafe_allow_html=True)
+with c6:
+    st.markdown('<div class="noon-chart">', unsafe_allow_html=True)
+    chart(plot_countplot, filtered_df, "Count Plot")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+cap("<b>Country Rankings</b> — USA dominated early eras; Japan surged mid-century; Kenya and Ethiopia "
+    "have dominated since the 1990s with East African runners pioneering altitude training. "
+    "<b>Wins Per Decade</b> — Grouped by gender; the women's field only appears from the 1960s onward.")
+
+_t3 = filtered_df["Country"].value_counts().head(3)
+_t3s = ", ".join([f"<b>{c}</b> ({n})" for c, n in _t3.items()])
+_bd = filtered_df["Decade_Label"].value_counts()
+_bdn, _bdc = (_bd.index[0], _bd.iloc[0]) if len(_bd) else ("N/A", 0)
+_uw = filtered_df["Winner"].nunique()
+
+ics(
+    ("Top 3 Nations", "",
+     f"The podium: {_t3s}. These nations have shaped every era of Boston history."),
+    ("Most Active Decade", _bdn,
+     f"The <b>{_bdn}</b> had the most winners in this selection (<b>{_bdc} races</b>). "
+     f"Decade trends reveal how competition depth evolved over 127 years."),
+    ("Unique Champions", f"{_uw}",
+     f"<b>{_uw}</b> different athletes won across filtered records. "
+     f"<b>Clarence DeMar</b> leads all-time with 7 wins (1911–1930)."),
 )
+gc.collect()
 
-# ═══════════════════════════════════════════════════════════════
-# SECTION 4 — STATISTICAL
-# ═══════════════════════════════════════════════════════════════
-section("Statistical Distribution", "Spread, density, and correlation analysis")
 
-col7, col8 = st.columns(2)
-with col7:
-    st.markdown('<div class="chart-left"><div class="noon-chart">', unsafe_allow_html=True)
-    show_chart(plot_boxplot, filtered_df, "Box Plot")
-    st.markdown('</div></div>', unsafe_allow_html=True)
-with col8:
-    st.markdown('<div class="chart-right"><div class="noon-chart">', unsafe_allow_html=True)
-    show_chart(plot_violin, filtered_df, "Violin Plot")
-    st.markdown('</div></div>', unsafe_allow_html=True)
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 4 — STATISTICAL DISTRIBUTION
+# ══════════════════════════════════════════════════════════════════════════════
+section("Statistical Distribution", "Spread, density, outlier analysis, and feature correlations")
+
+c7, c8 = st.columns(2)
+with c7:
+    st.markdown('<div class="noon-chart">', unsafe_allow_html=True)
+    chart(plot_boxplot, filtered_df, "Box Plot")
+    st.markdown('</div>', unsafe_allow_html=True)
+with c8:
+    st.markdown('<div class="noon-chart">', unsafe_allow_html=True)
+    chart(plot_violin, filtered_df, "Violin")
+    st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown('<div class="noon-chart">', unsafe_allow_html=True)
-show_chart(plot_heatmap, filtered_df, "Heatmap")
+chart(plot_heatmap, filtered_df, "Heatmap")
 st.markdown('</div>', unsafe_allow_html=True)
 
-st.markdown('''
-<div class="chart-caption"><p>
-<b>Box Plot</b> — Interquartile ranges reveal the spread of winning times by gender and decade.
-Outliers (dots beyond whiskers) are typically early-era races with longer distances or harsh conditions.
-<b>Violin Plot</b> — Adds density information; the wider the violin, the more races at that time.
-<b>Heatmap</b> — Correlation matrix shows strong negative correlation between year and time
-(times decrease as years increase), confirming the improvement trend seen in Section 2.
-</p></div>''', unsafe_allow_html=True)
+cap("<b>Box Plot</b> — IQR reveals spread per gender; outliers (dots beyond whiskers) are often early-era races. "
+    "<b>Violin Plot</b> — Adds full density shape; wider = more races at that time. Modern winners cluster tightly. "
+    "<b>Correlation Heatmap</b> — Strong negative Year↔Time correlation: as years increase, times decrease. "
+    "Speed and Pace are perfectly inverse by definition.")
+
+_med = round(filtered_df["Time_Minutes"].dropna().median(), 1)
+_std = round(filtered_df["Time_Minutes"].dropna().std(), 1)
+_ma = round(filtered_df[filtered_df["Gender"]=="Male"]["Time_Minutes"].mean(), 1) if "Male" in filtered_df["Gender"].values else None
+_fa = round(filtered_df[filtered_df["Gender"]=="Female"]["Time_Minutes"].mean(), 1) if "Female" in filtered_df["Gender"].values else None
+_gap = round(_fa - _ma, 1) if (_ma and _fa) else None
+
+ics(
+    ("Median Finish", f"{_med} min",
+     f"Median of <b>{_med} min</b> ({int(_med//60)}h {int(_med%60)}m). "
+     f"Standard deviation of <b>{_std} min</b> shows how tightly elite performances cluster."),
+    ("Gender Gap", f"{_gap} min" if _gap else "Single gender",
+     (f"Men avg <b>{_ma} min</b>, Women avg <b>{_fa} min</b> — gap of <b>{_gap} min</b>. "
+      f"This gap has narrowed dramatically since the 1970s as women's athletics matured."
+      if _gap else "Select 'All' in gender filter to see the gap comparison.")),
+    ("Spread (σ)", f"{_std} min",
+     f"σ = <b>{_std} min</b> reflects competitive consistency. "
+     f"Lower σ in recent decades proves the field is getting deeper and faster simultaneously."),
+)
+
+fb("🧠",
+   "<b>Statistical note:</b> Outliers in the box plot are typically pre-1924 races when the official distance "
+   "hadn't yet been standardized at 26.2 miles. Early races used varying distances, making direct comparisons "
+   "tricky — the data includes distance columns so you can filter accordingly.")
 
 gc.collect()
 
-# Section 4 insights
-_median_t  = round(filtered_df["Time_Minutes"].dropna().median(), 1)
-_std_t     = round(filtered_df["Time_Minutes"].dropna().std(), 1)
-_male_avg  = round(filtered_df[filtered_df["Gender"]=="Male"]["Time_Minutes"].mean(), 1)   if "Male"   in filtered_df["Gender"].values else None
-_female_avg= round(filtered_df[filtered_df["Gender"]=="Female"]["Time_Minutes"].mean(), 1) if "Female" in filtered_df["Gender"].values else None
-_gap = round(_female_avg - _male_avg, 1) if (_male_avg and _female_avg) else None
 
-insight_cards(
-    ("📐", "Median Finish Time", f"{_median_t} min",
-     f"The median winning time is <b>{_median_t} min</b> ({int(_median_t//60)}h {int(_median_t%60)}m). "
-     f"The standard deviation of <b>{_std_t} min</b> shows how tightly clustered elite performances are."),
-    ("⚖️", "Gender Gap", f"{_gap} min" if _gap else "Single gender",
-     (f"Men average <b>{_male_avg} min</b>, Women <b>{_female_avg} min</b> — a gap of <b>{_gap} min</b>. "
-      f"The women's gap has narrowed significantly since the 1970s as elite female athletics matured."
-      if _gap else "Filter includes only one gender. Select 'All' to see the gender gap comparison.")),
-    ("📈", "Spread Analysis", f"σ = {_std_t} min",
-     f"A standard deviation of <b>{_std_t} min</b> reflects how consistently elite runners "
-     f"perform near peak times. Lower σ in recent decades shows increasing competitive depth."),
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 5 — ADVANCED VISUALIZATIONS
+# ══════════════════════════════════════════════════════════════════════════════
+section("Advanced Visualizations", "Multi-dimensional analysis — speed, pace, time, and performance tiers")
+
+c9, c10 = st.columns(2)
+with c9:
+    st.markdown('<div class="noon-chart">', unsafe_allow_html=True)
+    chart(plot_bubble_chart, filtered_df, "Bubble")
+    st.markdown('</div>', unsafe_allow_html=True)
+with c10:
+    st.markdown('<div class="noon-chart">', unsafe_allow_html=True)
+    chart(plot_funnel_chart, filtered_df, "Funnel")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+with st.expander("🔬 Pair Plot — Multi-Feature Relationship Matrix", expanded=False):
+    chart(plot_pairplot, filtered_df, "Pair Plot")
+
+cap("<b>Bubble Chart</b> — Year (x), Time (y), bubble size = Speed. Larger = faster. "
+    "<b>Funnel / Bracket</b> — Performance tiers from slowest to fastest. Most winners cluster in 2:20–2:50. "
+    "<b>Pair Plot</b> — Every feature vs every other feature. The Year↔Time diagonal trend is the clearest signal.")
+
+_ap = round(filtered_df["Pace_Per_Mile"].dropna().mean(), 2) if len(filtered_df) else 0
+_tsrow = filtered_df.loc[filtered_df["Speed_MPH"].idxmax()] if len(filtered_df) else None
+_tsn = _tsrow["Winner"] if _tsrow is not None else "N/A"
+_tsv = round(_tsrow["Speed_MPH"], 2) if _tsrow is not None else 0
+
+ics(
+    ("Avg Pace / Mile", f"{_ap} min/mi",
+     f"Winners average <b>{_ap} min/mile</b> — each mile in under "
+     f"<b>{int(_ap)}:{int((_ap%1)*60):02d}</b>. Sustained over 26.2 miles, it's superhuman."),
+    ("Top Speed on Record", f"{_tsv} mph",
+     f"<b>{_tsn}</b> holds the highest recorded speed at <b>{_tsv} mph</b>. "
+     f"Modern supershoes (Nike Vaporfly, Adidas Adizero) add ~4 min to a marathon."),
+    ("Dimensional Analysis", "3D insight",
+     f"Bubble chart maps 3 variables simultaneously — year, time, speed. "
+     f"The funnel shows only <b>{len(filtered_df[filtered_df['Time_Minutes'] < 130])}</b> sub-2:10 performances exist."),
 )
 
-fact_banner("🧠",
-    f"<b>Statistical insight:</b> Box plots reveal outliers — unusually slow times often correspond "
-    f"to early marathon years (pre-1920s) when training science was primitive. The violin plot "
-    f"shows the full distribution shape: modern winners cluster in a very tight band near peak performance.")
-
-# ═══════════════════════════════════════════════════════════════
-# SECTION 5 — BONUS
-# ═══════════════════════════════════════════════════════════════
-section("Advanced Visualizations", "Bubble chart, funnel analysis, and pair plot")
-
-col9, col10 = st.columns(2)
-with col9:
-    st.markdown('<div class="chart-left"><div class="noon-chart">', unsafe_allow_html=True)
-    show_chart(plot_bubble_chart, filtered_df, "Bubble Chart")
-    st.markdown('</div></div>', unsafe_allow_html=True)
-with col10:
-    st.markdown('<div class="chart-right"><div class="noon-chart">', unsafe_allow_html=True)
-    show_chart(plot_funnel_chart, filtered_df, "Funnel Chart")
-    st.markdown('</div></div>', unsafe_allow_html=True)
-
-with st.expander("Pair Plot — Multi-Feature Relationship Analysis", expanded=False):
-    show_chart(plot_pairplot, filtered_df, "Pair Plot")
-
-st.markdown('''
-<div class="chart-caption"><p>
-<b>Bubble Chart</b> — Three dimensions at once: Year (x), Finishing Time (y), Speed (bubble size).
-Larger bubbles = faster races. <b>Funnel Chart</b> — Shows progression through performance tiers,
-from all records down to elite sub-2:10 performances. <b>Pair Plot</b> — Multi-feature correlation
-matrix; the diagonal shows each variable's distribution while off-diagonal shows pairwise relationships.
-</p></div>''', unsafe_allow_html=True)
+fb("📌",
+   "<b>Did you know?</b> Boston is one of six <b>World Marathon Majors</b> (Tokyo, London, Berlin, Chicago, NYC). "
+   "It's the only major with a <b>qualifying standard</b> — you must run sub-3h (men) or sub-3:30h (women) first. "
+   "The race attracts ~30,000 runners annually with ~500,000 spectators lining the route.")
 
 gc.collect()
 
-# Section 5 insights
-_avg_pace = round(filtered_df["Pace_Per_Mile"].dropna().mean(), 2) if len(filtered_df) > 0 else 0
-_best_pace = round(filtered_df["Pace_Per_Mile"].dropna().min(), 2) if len(filtered_df) > 0 else 0
-_top_speed_row = filtered_df.loc[filtered_df["Speed_MPH"].idxmax()] if len(filtered_df) > 0 else None
-_top_speed_name = _top_speed_row["Winner"] if _top_speed_row is not None else "N/A"
-_top_speed_val  = round(_top_speed_row["Speed_MPH"], 2) if _top_speed_row is not None else 0
 
-insight_cards(
-    ("🏃", "Avg Pace Per Mile", f"{_avg_pace} min/mi",
-     f"Winners average <b>{_avg_pace} min/mile</b> — that's running each mile in under "
-     f"<b>{int(_avg_pace)}:{int((_avg_pace%1)*60):02d}</b>. Sustained over 26.2 miles, this is superhuman."),
-    ("⚡", "Fastest Ever Speed", f"{_top_speed_val} mph",
-     f"<b>{_top_speed_name}</b> holds the highest recorded speed at <b>{_top_speed_val} mph</b> "
-     f"in this dataset. Modern marathon winners run faster than most cyclists on flat roads."),
-    ("🔬", "Multi-Feature Analysis", "Pair & Bubble",
-     f"The bubble chart maps Year vs Time vs Speed together. The pair plot reveals correlations "
-     f"between all numeric features — pace, speed, time, and distance interact in revealing ways."),
-)
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 6 — DATA EXPLORER
+# ══════════════════════════════════════════════════════════════════════════════
+section("Data Explorer", "Browse, inspect, and download the filtered dataset")
 
-fact_banner("📌",
-    f"<b>Did you know?</b> The Boston Marathon is one of the six <b>World Marathon Majors</b> "
-    f"alongside Tokyo, London, Berlin, Chicago, and New York. It is the only major with a "
-    f"<b>qualifying standard</b> — you must run a sub-3h (men) or sub-3:30h (women) marathon "
-    f"just to enter. The 2011 men's record by <b>Geoffrey Mutai</b> (2:03:02) stood for years "
-    f"and remains one of the fastest ever run on a point-to-point course.")
-
-# ═══════════════════════════════════════════════════════════════
-# DATA TABLE
-# ═══════════════════════════════════════════════════════════════
-section("Data Explorer", "Browse and inspect the filtered dataset")
-
-display_cols = ["Year", "Winner", "Country", "Gender", "Time", "Distance (Miles)",
-                "Distance (KM)", "Time_Minutes", "Pace_Per_Mile", "Speed_MPH", "Decade_Label"]
-available_cols = [c for c in display_cols if c in filtered_df.columns]
-st.dataframe(
-    filtered_df[available_cols].reset_index(drop=True),
-    use_container_width=True,
-    height=420,
-)
+disp = [c for c in ["Year","Winner","Country","Gender","Time","Distance (Miles)",
+                     "Distance (KM)","Time_Minutes","Pace_Per_Mile","Speed_MPH","Decade_Label"]
+        if c in filtered_df.columns]
+st.dataframe(filtered_df[disp].reset_index(drop=True), use_container_width=True, height=400)
 
 
-# ═══════════════════════════════════════════════════════════════
-# EXPORT SECTION
-# ═══════════════════════════════════════════════════════════════
-section("Data Export", "Download the filtered dataset for your own analysis")
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 7 — EXPORT
+# ══════════════════════════════════════════════════════════════════════════════
+section("Data Export", "Download filtered or full datasets for your own analysis")
 
-import io
-_export_df = filtered_df[[c for c in ["Year","Winner","Country","Gender","Time","Time_Minutes",
+_edf = filtered_df[[c for c in ["Year","Winner","Country","Gender","Time","Time_Minutes",
     "Speed_MPH","Pace_Per_Mile","Distance (Miles)","Distance (KM)","Decade_Label"]
     if c in filtered_df.columns]].reset_index(drop=True)
+_cbuf = io.StringIO()
+_edf.to_csv(_cbuf, index=False)
+_cbytes = _cbuf.getvalue().encode()
 
-_csv_buf = io.StringIO()
-_export_df.to_csv(_csv_buf, index=False)
-_csv_bytes = _csv_buf.getvalue().encode()
+ex1, ex2, ex3 = st.columns(3)
+with ex1:
+    st.download_button("⬇️ Download Filtered CSV", _cbytes,
+        f"boston_filtered_{len(_edf)}_records.csv", "text/csv", use_container_width=True)
+with ex2:
+    st.download_button("⬇️ Download Men's Full CSV",
+        open("data/Mens_Boston_Marathon_Winners_r0l7bV.csv","rb").read(),
+        "boston_mens_full.csv", "text/csv", use_container_width=True)
+with ex3:
+    st.download_button("⬇️ Download Women's Full CSV",
+        open("data/Womens_Boston_Marathon_Winners_8SSnWb.csv","rb").read(),
+        "boston_womens_full.csv", "text/csv", use_container_width=True)
 
-col_exp1, col_exp2, col_exp3 = st.columns(3)
-with col_exp1:
-    st.download_button(
-        label="⬇️ Download Filtered CSV",
-        data=_csv_bytes,
-        file_name=f"boston_marathon_filtered_{len(_export_df)}_records.csv",
-        mime="text/csv",
-        use_container_width=True,
-    )
-with col_exp2:
-    st.download_button(
-        label="⬇️ Download Full Dataset CSV",
-        data=open("data/Mens_Boston_Marathon_Winners_r0l7bV.csv","rb").read(),
-        file_name="boston_marathon_mens_full.csv",
-        mime="text/csv",
-        use_container_width=True,
-    )
-with col_exp3:
-    st.download_button(
-        label="⬇️ Download Women's CSV",
-        data=open("data/Womens_Boston_Marathon_Winners_8SSnWb.csv","rb").read(),
-        file_name="boston_marathon_womens_full.csv",
-        mime="text/csv",
-        use_container_width=True,
-    )
-
-# ── Quick Summary
-st.markdown(f'''
-<div class="export-box" style="margin-top:16px;">
+st.markdown(f"""
+<div class="export-card" style="margin-top:16px;">
     <h4>📊 Quick Summary — Current Filter</h4>
     <div class="info-grid">
-        <div class="info-item">
-            <div class="info-item-label">Total Records</div>
-            <div class="info-item-value">{len(_export_df)}</div>
-        </div>
-        <div class="info-item">
-            <div class="info-item-label">Year Range</div>
-            <div class="info-item-value">{int(_export_df["Year"].min())} – {int(_export_df["Year"].max())}</div>
-        </div>
-        <div class="info-item">
-            <div class="info-item-label">Unique Winners</div>
-            <div class="info-item-value">{_export_df["Winner"].nunique()}</div>
-        </div>
-        <div class="info-item">
-            <div class="info-item-label">Countries</div>
-            <div class="info-item-value">{_export_df["Country"].nunique()}</div>
-        </div>
-        <div class="info-item">
-            <div class="info-item-label">Fastest Time</div>
-            <div class="info-item-value">{_export_df["Time_Minutes"].min():.1f} min</div>
-        </div>
-        <div class="info-item">
-            <div class="info-item-label">Avg Speed</div>
-            <div class="info-item-value">{_export_df["Speed_MPH"].mean():.2f} mph</div>
-        </div>
+        <div><div class="ig-lbl">Total Records</div><div class="ig-val">{len(_edf)}</div></div>
+        <div><div class="ig-lbl">Year Range</div><div class="ig-val">{int(_edf['Year'].min())} – {int(_edf['Year'].max())}</div></div>
+        <div><div class="ig-lbl">Unique Winners</div><div class="ig-val">{_edf['Winner'].nunique()}</div></div>
+        <div><div class="ig-lbl">Countries</div><div class="ig-val">{_edf['Country'].nunique()}</div></div>
+        <div><div class="ig-lbl">Fastest Time</div><div class="ig-val">{_edf['Time_Minutes'].min():.1f} min</div></div>
+        <div><div class="ig-lbl">Avg Speed</div><div class="ig-val">{_edf['Speed_MPH'].mean():.2f} mph</div></div>
     </div>
 </div>
-''', unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
-# ═══════════════════════════════════════════════════════════════
+
+# ══════════════════════════════════════════════════════════════════════════════
 # DASHBOARD INFO CARD
-# ═══════════════════════════════════════════════════════════════
-st.markdown(f'''
+# ══════════════════════════════════════════════════════════════════════════════
+st.markdown(f"""
 <div class="info-card">
     <h4>ℹ️ Dashboard Information</h4>
     <div class="info-grid">
-        <div class="info-item">
-            <div class="info-item-label">Data Sources</div>
-            <div class="info-item-value">Men's (1897–2022) · Women's (1966–2022)</div>
-        </div>
-        <div class="info-item">
-            <div class="info-item-label">Total Records Available</div>
-            <div class="info-item-value">{len(df)} race results</div>
-        </div>
-        <div class="info-item">
-            <div class="info-item-label">Chart Types</div>
-            <div class="info-item-value">10 visualizations + Pair Plot</div>
-        </div>
-        <div class="info-item">
-            <div class="info-item-label">Country Representation</div>
-            <div class="info-item-value">{df["Country"].nunique()} nations across 6 continents</div>
-        </div>
-        <div class="info-item">
-            <div class="info-item-label">Built With</div>
-            <div class="info-item-value">Streamlit · Pandas · Matplotlib · Seaborn</div>
-        </div>
-        <div class="info-item">
-            <div class="info-item-label">Race Distance</div>
-            <div class="info-item-value">26.2 mi / 42.195 km (standardized 1924)</div>
-        </div>
+        <div><div class="ig-lbl">Data Sources</div><div class="ig-val">Men's (1897–2022) · Women's (1966–2022)</div></div>
+        <div><div class="ig-lbl">Total Records</div><div class="ig-val">{len(df)} race results</div></div>
+        <div><div class="ig-lbl">Visualizations</div><div class="ig-val">13 chart types across 7 sections</div></div>
+        <div><div class="ig-lbl">Nations</div><div class="ig-val">{df['Country'].nunique()} countries across 6 continents</div></div>
+        <div><div class="ig-lbl">Race Distance</div><div class="ig-val">26.2 mi / 42.195 km (standard since 1924)</div></div>
+        <div><div class="ig-lbl">Built With</div><div class="ig-val">Streamlit · Pandas · Matplotlib · Seaborn</div></div>
     </div>
 </div>
-''', unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
-# ═══════════════════════════════════════════════════════════════
+
+# ══════════════════════════════════════════════════════════════════════════════
 # FOOTER
-# ═══════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════════════
 st.markdown("""
-<div class="noon-footer">
+<div class="footer">
     <p>
-        Boston Marathon Data Visualization Dashboard<br>
-        Built with <span class="highlight">Streamlit</span> ·
-        <span class="highlight">Pandas</span> ·
-        <span class="highlight">Matplotlib</span> ·
-        <span class="highlight">Seaborn</span>
+        <b>Boston Marathon</b> Elite Analytics Dashboard<br>
+        Built with <b>Streamlit</b> · <b>Pandas</b> · <b>Matplotlib</b> · <b>Seaborn</b><br>
+        Data covers <b>1897–2022</b> · Patriots Day · Hopkinton → Boylston Street · 26.2 Miles
     </p>
 </div>
 """, unsafe_allow_html=True)
